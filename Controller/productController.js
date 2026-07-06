@@ -872,6 +872,7 @@ return res.json({
                     offerPrice: s.offerPrice ?? existingSize.offerPrice ?? 0,
                     countInStock: s.countInStock ?? existingSize.countInStock ?? 0,
                     sku: s.sku ?? existingSize.sku ?? "",
+                    barcode: s.barcode ?? existingSize.barcode ?? "", // Preserve barcode if exists
                     minOrderQuantity: s.minOrderQuantity ?? existingSize.minOrderQuantity ?? 1,
                     maxOrderQuantity: s.maxOrderQuantity ?? existingSize.maxOrderQuantity ?? null,
                     variantStockThreshold: s.variantStockThreshold ?? existingSize.variantStockThreshold ?? 5,
@@ -890,6 +891,7 @@ return res.json({
             images: Array.isArray(v.images) ? v.images : existing.images || [],
             countInStock: v.countInStock ?? existing.countInStock ?? 0,
             sku: v.sku ?? existing.sku ?? "",
+            barcode: v.barcode ?? existing.barcode ?? "", // Preserve barcode if exists
             minOrderQuantity: v.minOrderQuantity ?? existing.minOrderQuantity ?? 1,
             maxOrderQuantity: v.maxOrderQuantity ?? existing.maxOrderQuantity ?? null,
             variantStockThreshold: v.variantStockThreshold ?? existing.variantStockThreshold ?? 5,
@@ -2329,15 +2331,21 @@ const productSearch = asyncHandler(async (req, res) => {
         { tags: regex },
         { keywords: regex },
 
+        { sku: regex },                 // ⭐ NEW -> Search Product SKU
+        { barcode: regex },             // ⭐ NEW -> Search Product Barcode
+
         { tags: wordRegex },
         { keywords: wordRegex },
 
         { "flatVariants.size": regex },
         { "flatVariants.sku": regex },
+        { "flatVariants.barcode": regex },   // ⭐ NEW -> Search WeightPack Barcode
+
 
         { "colorVariants.name": regex },
         { "colorVariants.sizes.size": regex },
         { "colorVariants.sizes.sku": regex },
+        { "colorVariants.sizes.barcode": regex }, // ⭐ NEW -> Search ColorSize Barcode
       ],
     };
 
@@ -2439,11 +2447,37 @@ const productSearch = asyncHandler(async (req, res) => {
           k.toLowerCase()
         );
 
+        // ⭐ NEW -> Product level SKU
+        const sku = (product.sku || "").toLowerCase();
+
+        // ⭐ NEW -> Product level Barcode
+        const barcode = (product.barcode || "").toLowerCase();
+
         searchWords.forEach((word) => {
           // Highest Priority - Name
           if (name === word) score += 1000;
           else if (name.startsWith(word)) score += 800;
           else if (name.includes(word)) score += 600;
+
+           // ================= SKU =================
+
+          // ⭐ NEW -> Exact SKU match
+          if (sku === word)
+            score += 900;
+
+          // ⭐ NEW -> Partial SKU match
+          else if (sku.includes(word))
+            score += 700;
+
+          // ================= BARCODE =================
+
+          // ⭐ NEW -> Barcode should get highest priority
+          if (barcode === word)
+            score += 1200;
+
+          // ⭐ NEW -> Partial barcode
+          else if (barcode.includes(word))
+            score += 1000;
 
           // Keyword
           if (keywords.includes(word)) score += 500;
@@ -2453,6 +2487,50 @@ const productSearch = asyncHandler(async (req, res) => {
 
           // Description
           if (description.includes(word)) score += 200;
+
+          // ⭐ NEW -> Search inside WeightPack variants
+          product.flatVariants?.forEach((variant) => {
+
+            if (
+              variant.barcode &&
+              variant.barcode.toLowerCase() === word
+            ) {
+              score += 1200;
+            }
+
+            if (
+              variant.sku &&
+              variant.sku.toLowerCase() === word
+            ) {
+              score += 900;
+            }
+          });
+
+          // ================= COLOR VARIANTS =================
+
+          // ⭐ NEW -> Search inside Color Variant sizes
+          product.colorVariants?.forEach((color) => {
+
+            color.sizes?.forEach((size) => {
+
+              if (
+                size.barcode &&
+                size.barcode.toLowerCase() === word
+              ) {
+                score += 1200;
+              }
+
+              if (
+                size.sku &&
+                size.sku.toLowerCase() === word
+              ) {
+                score += 900;
+              }
+
+            });
+
+          });
+
         });
 
         return score;
