@@ -4534,6 +4534,138 @@ const bulkSyncSelectedProducts = asyncHandler(async (req, res) => {
   });
 });
 
+
+// Scan product by barcode
+
+const scanProductByBarcode = asyncHandler(async (req, res) => {
+  try {
+    const { barcode } = req.params;
+
+    if (!barcode) {
+      return res.status(400).json({
+        success: false,
+        message: "Barcode is required",
+      });
+    }
+
+    const franchiseId =
+      req.user?.franchiseId?.toString() ||
+      req.query.franchiseId ||
+      null;
+
+    // Fetch complete product
+    const product = await Product.findOne({
+      $or: [
+        { barcode },
+        { "flatVariants.barcode": barcode },
+        { "colorVariants.sizes.barcode": barcode },
+      ],
+    })
+      .populate("brand", "name")
+      .populate("category")
+      .populate("subCategory")
+      .populate("segment")
+      .lean();
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "No product found.",
+      });
+    }
+
+    let response = {
+      ...product,
+      franchiseInventories: undefined,
+    };
+
+    // Overlay franchise inventory
+    if (franchiseId && product.franchiseInventories?.length) {
+      const inventory = product.franchiseInventories.find(
+        (f) => f.franchiseId.toString() === franchiseId
+      );
+
+      if (inventory) {
+        response = {
+          ...response,
+          mrp: inventory.mrp,
+          offerPrice: inventory.offerPrice,
+          countInStock: inventory.countInStock,
+          outOfStock: inventory.outOfStock,
+          isEnable: inventory.isEnable,
+          minOrderQuantity: inventory.minOrderQuantity,
+          maxOrderQuantity: inventory.maxOrderQuantity,
+          lowStockThreshold: inventory.lowStockThreshold,
+          flatVariants: inventory.flatVariants,
+          colorVariants: inventory.colorVariants,
+        };
+      }
+    }
+
+    // Detect scanned variant
+    let scannedVariant = null;
+
+    // Product barcode
+    if (product.barcode === barcode) {
+      scannedVariant = {
+        type: "Single",
+        barcode,
+        sku: product.sku,
+        mrp: response.mrp,
+        offerPrice: response.offerPrice,
+        countInStock: response.countInStock,
+      };
+    }
+
+    // WeightPack barcode
+    if (!scannedVariant) {
+      const variant = response.flatVariants?.find(
+        (v) => v.barcode === barcode
+      );
+
+      if (variant) {
+        scannedVariant = {
+          type: "WeightPack",
+          ...variant,
+        };
+      }
+    }
+
+    // ColorSize barcode
+    if (!scannedVariant) {
+      for (const color of response.colorVariants || []) {
+        const size = color.sizes.find(
+          (s) => s.barcode === barcode
+        );
+
+        if (size) {
+          scannedVariant = {
+            type: "ColorSize",
+            color: color.name,
+            colorCode: color.code,
+            ...size,
+          };
+          break;
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "Barcode scanned successfully.",
+      product: response,
+      scannedVariant,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 module.exports = {
   addProduct,
   updateProductDetails,
@@ -4561,5 +4693,6 @@ module.exports = {
   subscribeStockNotification,
   getStockNotificationSubscribers,
   bulkSyncAllProductsToStore,
-  bulkSyncSelectedProducts
+  bulkSyncSelectedProducts,
+  scanProductByBarcode,
 };
