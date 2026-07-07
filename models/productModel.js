@@ -30,6 +30,7 @@ const colorVariantSchema = new mongoose.Schema({
   name: { type: String }, // Red, Blue, etc.
   code: { type: String }, // HEX color code
   images: [{ type: String }],
+  
   sizes: [sizeSchema], // multiple sizes under this color
 });
 
@@ -173,7 +174,7 @@ const productSchema = new mongoose.Schema(
 );
 
 // Auto set outOfStock flag & enforce only allowed variant type
-productSchema.pre("save", function (next) {
+productSchema.pre("save", function () {
   // ── Master product: enforce variant type ────────────────────────────────
   // Only clear master variants — never touch franchiseInventories
   if (this.productType === "ColorSize") {
@@ -228,7 +229,7 @@ productSchema.pre("save", function (next) {
     });
   }
 
-  next();
+  
 });
 
 const Product = mongoose.model("Product", productSchema);

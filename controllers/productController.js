@@ -3,17 +3,17 @@ const asyncHandler = require("../middlewares/asyncHandler.js");
 const Product = require("../models/productModel.js");
 // const SlabRequest = require("../models/slabRequest.js");
 const moment = require("moment-timezone");
-const brand = require("../models/brand.js");
-const categoryModel = require("../models/categoryModel.js");
-const subCategorySchema = require("../models/subCategorySchema.js");
-const segmentSchema = require("../models/segmentSchema.js");
-const checkModelReferences = require("../utils/checkModelReferences.js");
-const stockNotificationSchema = require("../models/stockNotificationSchema.js");
-const Notification = require("../models/notification");
-const { sendToUser } = require("../socket/socket.server.js");
-const { createNotification } = require("./notificationController.js");
-const admin = require("firebase-admin");
-const Franchise    = require('../models/franchiseSchema.js');
+// const brand = require("../models/brand.js");
+// const categoryModel = require("../models/categoryModel.js");
+// const subCategorySchema = require("../models/subCategorySchema.js");
+// const segmentSchema = require("../models/segmentSchema.js");
+// const checkModelReferences = require("../utils/checkModelReferences.js");
+// const stockNotificationSchema = require("../models/stockNotificationSchema.js");
+// const Notification = require("../models/notification");
+// const { sendToUser } = require("../socket/socket.server.js");
+// const { createNotification } = require("./notificationController.js");
+// const admin = require("firebase-admin");
+// const Franchise   = require('../models/franchiseSchema.js');
 
 //singleStore
 // const addProduct = asyncHandler(async (req, res) => {
@@ -206,13 +206,16 @@ const addProduct = asyncHandler(async (req, res) => {
 
     const role = req.user?.role;
 
+
+    //Testing
+
     // ── StoreManager cannot create products ──────────────────────────────────
-    if (role !== "Admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only Admin can create products. Use inventory management to activate products for your store.",
-      });
-    }
+    // if (role !== "Admin") {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Only Admin can create products. Use inventory management to activate products for your store.",
+    //   });
+    // }
 
     const imageUrls = Object.keys(req.fields)
       .filter((key) => key.startsWith("imageUrls"))
@@ -290,36 +293,38 @@ const addProduct = asyncHandler(async (req, res) => {
     );
 
     // ── Auto-push blank inventory entry to ALL active franchises ─────────────
-    const activeFranchises = await Franchise.find({ status: "Active" }).select("_id");
+//     const activeFranchises = await Franchise.find({ status: "Active" }).select("_id");
 
-const franchiseInventories = activeFranchises.map((f) => ({
-  franchiseId:       f._id,
-  mrp:               Number(mrp)        || 0,
-  offerPrice:        Number(offerPrice) || 0,
-  countInStock:      0,
-  lowStockThreshold: Number(lowStockThreshold) || 10,
-  minOrderQuantity:  Number(minQuantity) || 1,
-  maxOrderQuantity:  Number(maxQuantity) || null,
-  outOfStock:        true,
-  isEnable:          false,
-  // ✅ deep clone — critical
-  flatVariants: productType === "WeightPack"
-    ? JSON.parse(JSON.stringify(flatVariants)).map(v => ({ ...v, countInStock: 0 }))
-    : [],
-  colorVariants: productType === "ColorSize"
-    ? JSON.parse(JSON.stringify(colorVariants)).map(cv => ({
-        ...cv,
-        sizes: cv.sizes.map(s => ({ ...s, countInStock: 0 })),
-      }))
-    : [],
-}));
+// const franchiseInventories = activeFranchises.map((f) => ({
+//   franchiseId:       f._id,
+//   mrp:               Number(mrp)        || 0,
+//   offerPrice:        Number(offerPrice) || 0,
+//   countInStock:      0,
+//   lowStockThreshold: Number(lowStockThreshold) || 10,
+//   minOrderQuantity:  Number(minQuantity) || 1,
+//   maxOrderQuantity:  Number(maxQuantity) || null,
+//   outOfStock:        true,
+//   isEnable:          false,
+//   // ✅ deep clone — critical
+//   flatVariants: productType === "WeightPack"
+//     ? JSON.parse(JSON.stringify(flatVariants)).map(v => ({ ...v, countInStock: 0 }))
+//     : [],
+//   colorVariants: productType === "ColorSize"
+//     ? JSON.parse(JSON.stringify(colorVariants)).map(cv => ({
+//         ...cv,
+//         sizes: cv.sizes.map(s => ({ ...s, countInStock: 0 })),
+//       }))
+//     : [],
+// }));
+
+const franchiseInventories = []; //testing
 
     const product = new Product({
       name, description,
       mrp:              Number(mrp)          || 0,
       offerPrice:       Number(offerPrice)   || 0,
-      sku:              req.fields.sku || "",
-      barcode:          req.fields.barcode || "",
+      sku:              req.fields.sku || undefined,
+      barcode:          req.fields.barcode || undefined,
       countInStock:     Number(countInStock) || 0,
       category,
       subCategory: mongoose.Types.ObjectId.isValid(subCategory) ? subCategory : undefined,
@@ -344,16 +349,16 @@ const franchiseInventories = activeFranchises.map((f) => ({
       hasVariants: colorVariants.length > 0 || flatVariants.length > 0,
       attributes: cleanedAttributes,
       productType,
-      franchiseInventories, // ✅ all stores linked
+      // franchiseInventories, // ✅ all stores linked
     });
 
     await product.save();
 
     res.status(201).json({
       success: true,
-      message: `Product created and linked to ${activeFranchises.length} store(s). Stores must activate it.`,
+      message: `Product created and linked to store(s). Stores must activate it.`,
       product,
-      linkedStores: activeFranchises.length,
+      // linkedStores: activeFranchises.length, //testing
     });
   } catch (error) {
     console.error("Error in addProduct:", error);
@@ -1221,6 +1226,7 @@ const deleteProductById = asyncHandler(async (req, res) => {
     res.status(500).json({ error: "Server error", details: error.message });
   }
 });
+
 
 const fetchProducts = asyncHandler(async (req, res) => {
   try {
