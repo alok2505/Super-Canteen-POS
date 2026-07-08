@@ -1,81 +1,80 @@
 import { useState } from "react";
+
 import Navbar from "../components/Navbar";
-import BarcodeInput from "../components/BarcodeInput";
-import ProductDetails from "../components/ProductDetails";
-import Cart from "../components/Cart";
+import SearchBar from "../components/SearchBar";
+import BillingTable from "../components/BillingTable";
+import BillSummary from "../components/BillSummary";
 
 function POS() {
   const [cart, setCart] = useState([]);
-  const [lastScanned, setLastScanned] = useState(null);
 
   const handleProductScanned = (product) => {
-    // Show product details
-    setLastScanned(product);
 
-    // Add to cart
-    setCart((prevCart) => {
-      const existing = prevCart.find(
-        (item) => item.barcode === product.barcode
-      );
+    setCart((prev) => {
 
-      if (existing) {
-        return prevCart.map((item) =>
-          item.barcode === product.barcode
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item
+        const existing = prev.find(
+            (item) =>
+                item.barcode === product.barcode
         );
-      }
 
-      return [
-        ...prevCart,
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
+        if (existing) {
+
+            return prev.map((item) =>
+                item.barcode === product.barcode
+                    ? {
+                          ...item,
+                          quantity:
+                              item.quantity + 1,
+                      }
+                    : item
+            );
+        }
+
+        return [
+            ...prev,
+            {
+                ...product,
+                quantity: 1,
+            },
+        ];
     });
-  };
+};
 
   return (
-    <>
+    <div className="h-screen bg-slate-100 flex flex-col">
+
       <Navbar />
 
-      <div className="bg-slate-100 min-h-[calc(100vh-64px)] p-5">
+      <div className="flex flex-1 overflow-hidden">
 
-        <div className="grid grid-cols-12 gap-5">
+        {/* LEFT */}
 
-          {/* LEFT */}
+        <div className="w-[70%] p-4 flex flex-col gap-4">
 
-          <div className="col-span-8 space-y-5">
+          <SearchBar
+    onProductScanned={handleProductScanned}
+/>
 
-            <BarcodeInput
-              onProductScanned={handleProductScanned}
-            />
+          <BillingTable
+            cart={cart}
+            setCart={setCart}
+          />
 
-            <ProductDetails
-              product={lastScanned}
-            />
+        </div>
 
-          </div>
+        {/* RIGHT */}
 
-          {/* RIGHT */}
+        <div className="w-[30%] p-4">
 
-          <div className="col-span-4">
-
-            <Cart
-              cart={cart}
-              setCart={setCart}
-            />
-
-          </div>
+          <BillSummary
+            cart={cart}
+          />
 
         </div>
 
       </div>
-    </>
+
+    </div>
   );
 }
 
