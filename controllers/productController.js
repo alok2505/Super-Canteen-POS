@@ -197,15 +197,33 @@ const moment = require("moment-timezone");
 const addProduct = asyncHandler(async (req, res) => {
   try {
     const {
-      name, description, mrp, offerPrice, category, subCategory, rating, segment,
-      brand, countInStock, specification, aboutTheBrand, lowStockThreshold,
-      createdBy, tax, returnable, returnWindow,
-      warrantyPeriod, isFeatured, isBestSeller, visibility, minQuantity, maxQuantity,
-      productType
+      name,
+      description,
+      mrp,
+      offerPrice,
+      category,
+      subCategory,
+      rating,
+      segment,
+      brand,
+      countInStock,
+      specification,
+      aboutTheBrand,
+      lowStockThreshold,
+      createdBy,
+      tax,
+      returnable,
+      returnWindow,
+      warrantyPeriod,
+      isFeatured,
+      isBestSeller,
+      visibility,
+      minQuantity,
+      maxQuantity,
+      productType,
     } = req.fields;
 
     const role = req.user?.role;
-
 
     //Testing
 
@@ -221,26 +239,38 @@ const addProduct = asyncHandler(async (req, res) => {
       .filter((key) => key.startsWith("imageUrls"))
       .map((key) => req.fields[key]);
     if (!imageUrls.length)
-      return res.status(400).json({ error: "At least one image URL is required" });
+      return res
+        .status(400)
+        .json({ error: "At least one image URL is required" });
 
     const productCoupons = Object.keys(req.fields)
-      .filter((key) => key.startsWith("coupons[")).map((key) => req.fields[key]);
+      .filter((key) => key.startsWith("coupons["))
+      .map((key) => req.fields[key]);
     const tags = Object.keys(req.fields)
-      .filter((key) => key.startsWith("tags[")).map((key) => req.fields[key]);
+      .filter((key) => key.startsWith("tags["))
+      .map((key) => req.fields[key]);
     const keywords = Object.keys(req.fields)
-      .filter((key) => key.startsWith("keywords[")).map((key) => req.fields[key]);
+      .filter((key) => key.startsWith("keywords["))
+      .map((key) => req.fields[key]);
 
     let color = null;
     if (req.fields.color) {
       try {
-        color = typeof req.fields.color === "string" ? JSON.parse(req.fields.color) : req.fields.color;
+        color =
+          typeof req.fields.color === "string"
+            ? JSON.parse(req.fields.color)
+            : req.fields.color;
         color.name = color.name || "";
         color.code = color.code || "";
-      } catch { color = null; }
+      } catch {
+        color = null;
+      }
     }
     const size = req.fields.size || null;
 
-    const variantsRaw = req.fields.variants ? JSON.parse(req.fields.variants) : [];
+    const variantsRaw = req.fields.variants
+      ? JSON.parse(req.fields.variants)
+      : [];
     let colorVariants = [];
     let flatVariants = [];
 
@@ -250,17 +280,19 @@ const addProduct = asyncHandler(async (req, res) => {
           name: v.name || "",
           code: v.code || "",
           images: Array.isArray(v.images) ? v.images : [],
-          sizes: Array.isArray(v.sizes) ? v.sizes.map((s) => ({
-            size: s.size,
-            mrp: Number(s.mrp) || 0,
-            offerPrice: Number(s.offerPrice) || 0,
-            countInStock: Number(s.countInStock) || 0,
-            sku: s.sku || "",
-            barcode: s.barcode || "",
-            minOrderQuantity: Number(s.minOrderQuantity) || 1,
-            maxOrderQuantity: s.maxOrderQuantity || null,
-            variantStockThreshold: Number(s.variantStockThreshold) || 5,
-          })) : [],
+          sizes: Array.isArray(v.sizes)
+            ? v.sizes.map((s) => ({
+                size: s.size,
+                mrp: Number(s.mrp) || 0,
+                offerPrice: Number(s.offerPrice) || 0,
+                countInStock: Number(s.countInStock) || 0,
+                sku: s.sku || "",
+                barcode: s.barcode?.trim() || "",
+                minOrderQuantity: Number(s.minOrderQuantity) || 1,
+                maxOrderQuantity: s.maxOrderQuantity || null,
+                variantStockThreshold: Number(s.variantStockThreshold) || 5,
+              }))
+            : [],
         }));
       } else if (productType === "WeightPack") {
         flatVariants = variantsRaw.map((v) => ({
@@ -270,7 +302,7 @@ const addProduct = asyncHandler(async (req, res) => {
           images: Array.isArray(v.images) ? v.images : [],
           countInStock: Number(v.countInStock) || 0,
           sku: v.sku || "",
-          barcode: v.barcode || "",
+          barcode: v.barcode?.trim() || "",
           minOrderQuantity: Number(v.minOrderQuantity) || 1,
           maxOrderQuantity: v.maxOrderQuantity || null,
           variantStockThreshold: Number(v.variantStockThreshold) || 5,
@@ -289,63 +321,72 @@ const addProduct = asyncHandler(async (req, res) => {
       }
     }
     const cleanedAttributes = attributes.filter(
-      (attr) => attr.key?.trim() !== "" || attr.value?.trim() !== ""
+      (attr) => attr.key?.trim() !== "" || attr.value?.trim() !== "",
     );
 
     // ── Auto-push blank inventory entry to ALL active franchises ─────────────
-//     const activeFranchises = await Franchise.find({ status: "Active" }).select("_id");
+    //     const activeFranchises = await Franchise.find({ status: "Active" }).select("_id");
 
-// const franchiseInventories = activeFranchises.map((f) => ({
-//   franchiseId:       f._id,
-//   mrp:               Number(mrp)        || 0,
-//   offerPrice:        Number(offerPrice) || 0,
-//   countInStock:      0,
-//   lowStockThreshold: Number(lowStockThreshold) || 10,
-//   minOrderQuantity:  Number(minQuantity) || 1,
-//   maxOrderQuantity:  Number(maxQuantity) || null,
-//   outOfStock:        true,
-//   isEnable:          false,
-//   // ✅ deep clone — critical
-//   flatVariants: productType === "WeightPack"
-//     ? JSON.parse(JSON.stringify(flatVariants)).map(v => ({ ...v, countInStock: 0 }))
-//     : [],
-//   colorVariants: productType === "ColorSize"
-//     ? JSON.parse(JSON.stringify(colorVariants)).map(cv => ({
-//         ...cv,
-//         sizes: cv.sizes.map(s => ({ ...s, countInStock: 0 })),
-//       }))
-//     : [],
-// }));
+    // const franchiseInventories = activeFranchises.map((f) => ({
+    //   franchiseId:       f._id,
+    //   mrp:               Number(mrp)        || 0,
+    //   offerPrice:        Number(offerPrice) || 0,
+    //   countInStock:      0,
+    //   lowStockThreshold: Number(lowStockThreshold) || 10,
+    //   minOrderQuantity:  Number(minQuantity) || 1,
+    //   maxOrderQuantity:  Number(maxQuantity) || null,
+    //   outOfStock:        true,
+    //   isEnable:          false,
+    //   // ✅ deep clone — critical
+    //   flatVariants: productType === "WeightPack"
+    //     ? JSON.parse(JSON.stringify(flatVariants)).map(v => ({ ...v, countInStock: 0 }))
+    //     : [],
+    //   colorVariants: productType === "ColorSize"
+    //     ? JSON.parse(JSON.stringify(colorVariants)).map(cv => ({
+    //         ...cv,
+    //         sizes: cv.sizes.map(s => ({ ...s, countInStock: 0 })),
+    //       }))
+    //     : [],
+    // }));
 
-const franchiseInventories = []; //testing
+    const franchiseInventories = []; //testing
 
     const product = new Product({
-      name, description,
-      mrp:              Number(mrp)          || 0,
-      offerPrice:       Number(offerPrice)   || 0,
-      sku:              req.fields.sku || undefined,
-      barcode:          req.fields.barcode || undefined,
-      countInStock:     Number(countInStock) || 0,
+      name,
+      description,
+      mrp: Number(mrp) || 0,
+      offerPrice: Number(offerPrice) || 0,
+      sku: req.fields.sku || undefined,
+      barcode: req.fields.barcode || undefined,
+      countInStock: Number(countInStock) || 0,
       category,
-      subCategory: mongoose.Types.ObjectId.isValid(subCategory) ? subCategory : undefined,
-      segment:     mongoose.Types.ObjectId.isValid(segment)     ? segment     : undefined,
-      brand:       mongoose.Types.ObjectId.isValid(brand)        ? brand       : undefined,
+      subCategory: mongoose.Types.ObjectId.isValid(subCategory)
+        ? subCategory
+        : undefined,
+      segment: mongoose.Types.ObjectId.isValid(segment) ? segment : undefined,
+      brand: mongoose.Types.ObjectId.isValid(brand) ? brand : undefined,
       lowStockThreshold: Number(lowStockThreshold) || 10,
-      minOrderQuantity:  Number(minQuantity) || 1,
-      maxOrderQuantity:  Number(maxQuantity) || null,
-      coupons: productCoupons, images: imageUrls,
-      specification, aboutTheBrand,
+      minOrderQuantity: Number(minQuantity) || 1,
+      maxOrderQuantity: Number(maxQuantity) || null,
+      coupons: productCoupons,
+      images: imageUrls,
+      specification,
+      aboutTheBrand,
       createdBy: createdBy || req.user?._id,
       rating: Number(rating) || 0,
       tax: Number(tax) || 0,
       returnable: returnable !== undefined ? Boolean(returnable) : true,
       returnWindow: Number(returnWindow) || 7,
-      warrantyPeriod, isFeatured: Boolean(isFeatured),
+      warrantyPeriod,
+      isFeatured: Boolean(isFeatured),
       isBestSeller: Boolean(isBestSeller),
       visibility: visibility || "Public",
-      tags, keywords,
-      color: color || null, size: size || null,
-      colorVariants, flatVariants,
+      tags,
+      keywords,
+      color: color || null,
+      size: size || null,
+      colorVariants,
+      flatVariants,
       hasVariants: colorVariants.length > 0 || flatVariants.length > 0,
       attributes: cleanedAttributes,
       productType,
@@ -365,7 +406,6 @@ const franchiseInventories = []; //testing
     res.status(500).json({ error: error.message });
   }
 });
-
 
 //single store version - 1.1
 // const updateProductDetails = asyncHandler(async (req, res) => {
@@ -405,7 +445,6 @@ const franchiseInventories = []; //testing
 // // ✅ Remove duplicates
 // updatedImages = [...new Set(updatedImages)];
 
-
 //     // Coupons, tags, keywords
 //     const updatedCoupons = fields.coupons
 //       ? (typeof fields.coupons === "string" ? JSON.parse(fields.coupons) : fields.coupons)
@@ -420,11 +459,10 @@ const franchiseInventories = []; //testing
 //   ? (typeof fields.keywords === "string" ? JSON.parse(fields.keywords) : fields.keywords)
 //   : existingProduct.keywords || [];
 
-
 //     // Delivery time
 //     let deliveryTime = existingProduct.deliveryTime || { value: 0, unit: "days" };
 //     if (fields.deliveryTime) {
-//       try { deliveryTime = typeof fields.deliveryTime === "string" ? JSON.parse(fields.deliveryTime) : fields.deliveryTime; } 
+//       try { deliveryTime = typeof fields.deliveryTime === "string" ? JSON.parse(fields.deliveryTime) : fields.deliveryTime; }
 //       catch {}
 //     }
 
@@ -437,7 +475,6 @@ const franchiseInventories = []; //testing
 //     let size = fields.size !== undefined
 //       ? (typeof fields.size === "string" ? fields.size : fields.size.value || fields.size)
 //       : existingProduct.size || "";
-
 
 // // --- Variants ---
 // let variantsRaw = Array.isArray(fields.variants) ? fields.variants : (fields.variants ? JSON.parse(fields.variants) : []);
@@ -599,246 +636,296 @@ const updateProductDetails = asyncHandler(async (req, res) => {
   const id = req.params.id;
   try {
     const existingProduct = await Product.findById(id);
-    if (!existingProduct) return res.status(404).json({ error: "Product not found" });
+    if (!existingProduct)
+      return res.status(404).json({ error: "Product not found" });
 
-    const role        = req.user?.role;
+    const role = req.user?.role;
     const franchiseId = req.user?.franchiseId?.toString() || null;
-    const fields      = req.fields || req.body || {};
-    
-    console.log("role",role, "franchiseId", franchiseId);
+    const fields = req.fields || req.body || {};
 
-// ── STOREMANAGER / INVENTORYSTAFF: only update their franchiseInventory ──
-if (role === "StoreManager" || role === "InventoryStaff") {
-  if (!franchiseId)
-    return res.status(400).json({ error: "No franchise assigned to your account" });
+    console.log("role", role, "franchiseId", franchiseId);
 
-  const invIndex = existingProduct.franchiseInventories.findIndex(
-    (fi) => fi.franchiseId.toString() === franchiseId
-  );
-  if (invIndex === -1)
-    return res.status(404).json({
-      error: "Product not assigned to your store. Ask Admin to sync it first.",
-    });
+    // ── STOREMANAGER / INVENTORYSTAFF: only update their franchiseInventory ──
+    if (role === "StoreManager" || role === "InventoryStaff") {
+      if (!franchiseId)
+        return res
+          .status(400)
+          .json({ error: "No franchise assigned to your account" });
 
-  const inv = JSON.parse(
-    JSON.stringify(existingProduct.franchiseInventories[invIndex].toObject())
-  );
+      const invIndex = existingProduct.franchiseInventories.findIndex(
+        (fi) => fi.franchiseId.toString() === franchiseId,
+      );
+      if (invIndex === -1)
+        return res.status(404).json({
+          error:
+            "Product not assigned to your store. Ask Admin to sync it first.",
+        });
 
-  // ── InventoryStaff — stock only ───────────────────────────────────────────
-  if (role === "InventoryStaff") {
-    if (fields.countInStock !== undefined)
-      inv.countInStock = Number(fields.countInStock);
+      const inv = JSON.parse(
+        JSON.stringify(
+          existingProduct.franchiseInventories[invIndex].toObject(),
+        ),
+      );
 
-    let variantsRaw = fields.variants;
-    if (typeof variantsRaw === "string") {
-      try { variantsRaw = JSON.parse(variantsRaw); } catch { variantsRaw = []; }
-    }
+      // ── InventoryStaff — stock only ───────────────────────────────────────────
+      if (role === "InventoryStaff") {
+        if (fields.countInStock !== undefined)
+          inv.countInStock = Number(fields.countInStock);
 
-    if (Array.isArray(variantsRaw) && variantsRaw.length > 0) {
-      if (existingProduct.productType === "ColorSize") {
-        variantsRaw.forEach((incoming) => {
-          const cv = inv.colorVariants.find(
-            (c) => c._id.toString() === incoming._id?.toString()
-          );
-          if (cv && Array.isArray(incoming.sizes)) {
-            incoming.sizes.forEach((inSize) => {
-              const s = cv.sizes.find(
-                (sz) => sz._id.toString() === inSize._id?.toString()
+        let variantsRaw = fields.variants;
+        if (typeof variantsRaw === "string") {
+          try {
+            variantsRaw = JSON.parse(variantsRaw);
+          } catch {
+            variantsRaw = [];
+          }
+        }
+
+        if (Array.isArray(variantsRaw) && variantsRaw.length > 0) {
+          if (existingProduct.productType === "ColorSize") {
+            variantsRaw.forEach((incoming) => {
+              const cv = inv.colorVariants.find(
+                (c) => c._id.toString() === incoming._id?.toString(),
               );
-              if (s && inSize.countInStock !== undefined)
-                s.countInStock = Number(inSize.countInStock);
+              if (cv && Array.isArray(incoming.sizes)) {
+                incoming.sizes.forEach((inSize) => {
+                  const s = cv.sizes.find(
+                    (sz) => sz._id.toString() === inSize._id?.toString(),
+                  );
+                  if (s && inSize.countInStock !== undefined)
+                    s.countInStock = Number(inSize.countInStock);
+                });
+              }
+            });
+          } else if (existingProduct.productType === "WeightPack") {
+            variantsRaw.forEach((incoming) => {
+              const v = inv.flatVariants.find(
+                (fv) => fv._id.toString() === incoming._id?.toString(),
+              );
+              if (v && incoming.countInStock !== undefined)
+                v.countInStock = Number(incoming.countInStock);
             });
           }
-        });
-      } else if (existingProduct.productType === "WeightPack") {
-        variantsRaw.forEach((incoming) => {
-          const v = inv.flatVariants.find(
-            (fv) => fv._id.toString() === incoming._id?.toString()
-          );
-          if (v && incoming.countInStock !== undefined)
-            v.countInStock = Number(incoming.countInStock);
-        });
+        }
       }
-    }
-  }
 
-  // ── StoreManager — full inventory update ──────────────────────────────────
-  if (role === "StoreManager") {
-    if (fields.countInStock      !== undefined) inv.countInStock      = Number(fields.countInStock);
-    if (fields.mrp               !== undefined) inv.mrp               = Number(fields.mrp);
-    if (fields.offerPrice        !== undefined) inv.offerPrice        = Number(fields.offerPrice);
-    if (fields.isEnable          !== undefined) inv.isEnable          = fields.isEnable === "true" || fields.isEnable === true;
-    if (fields.minQuantity       !== undefined) inv.minOrderQuantity  = Number(fields.minQuantity);
-    if (fields.maxQuantity       !== undefined) inv.maxOrderQuantity  = Number(fields.maxQuantity);
-    if (fields.lowStockThreshold !== undefined) inv.lowStockThreshold = Number(fields.lowStockThreshold);
+      // ── StoreManager — full inventory update ──────────────────────────────────
+      if (role === "StoreManager") {
+        if (fields.countInStock !== undefined)
+          inv.countInStock = Number(fields.countInStock);
+        if (fields.mrp !== undefined) inv.mrp = Number(fields.mrp);
+        if (fields.offerPrice !== undefined)
+          inv.offerPrice = Number(fields.offerPrice);
+        if (fields.isEnable !== undefined)
+          inv.isEnable = fields.isEnable === "true" || fields.isEnable === true;
+        if (fields.minQuantity !== undefined)
+          inv.minOrderQuantity = Number(fields.minQuantity);
+        if (fields.maxQuantity !== undefined)
+          inv.maxOrderQuantity = Number(fields.maxQuantity);
+        if (fields.lowStockThreshold !== undefined)
+          inv.lowStockThreshold = Number(fields.lowStockThreshold);
 
-    let variantsRaw = fields.variants;
-    if (typeof variantsRaw === "string") {
-      try { variantsRaw = JSON.parse(variantsRaw); } catch { variantsRaw = []; }
-    }
+        let variantsRaw = fields.variants;
+        if (typeof variantsRaw === "string") {
+          try {
+            variantsRaw = JSON.parse(variantsRaw);
+          } catch {
+            variantsRaw = [];
+          }
+        }
 
-    if (Array.isArray(variantsRaw) && variantsRaw.length > 0) {
-      if (existingProduct.productType === "ColorSize") {
-        variantsRaw.forEach((incoming) => {
-          const cv = inv.colorVariants.find(
-            (c) => c._id.toString() === incoming._id?.toString()
-          );
-          if (cv && Array.isArray(incoming.sizes)) {
-            incoming.sizes.forEach((inSize) => {
-              const s = cv.sizes.find(
-                (sz) => sz._id.toString() === inSize._id?.toString()
+        if (Array.isArray(variantsRaw) && variantsRaw.length > 0) {
+          if (existingProduct.productType === "ColorSize") {
+            variantsRaw.forEach((incoming) => {
+              const cv = inv.colorVariants.find(
+                (c) => c._id.toString() === incoming._id?.toString(),
               );
-              if (s) {
-                if (inSize.countInStock !== undefined) s.countInStock = Number(inSize.countInStock);
-                if (inSize.offerPrice   !== undefined) s.offerPrice   = Number(inSize.offerPrice);
-                if (inSize.mrp          !== undefined) s.mrp          = Number(inSize.mrp);
+              if (cv && Array.isArray(incoming.sizes)) {
+                incoming.sizes.forEach((inSize) => {
+                  const s = cv.sizes.find(
+                    (sz) => sz._id.toString() === inSize._id?.toString(),
+                  );
+                  if (s) {
+                    if (inSize.countInStock !== undefined)
+                      s.countInStock = Number(inSize.countInStock);
+                    if (inSize.offerPrice !== undefined)
+                      s.offerPrice = Number(inSize.offerPrice);
+                    if (inSize.mrp !== undefined) s.mrp = Number(inSize.mrp);
+                  }
+                });
+              }
+            });
+          } else if (existingProduct.productType === "WeightPack") {
+            variantsRaw.forEach((incoming) => {
+              const v = inv.flatVariants.find(
+                (fv) => fv._id.toString() === incoming._id?.toString(),
+              );
+              if (v) {
+                if (incoming.countInStock !== undefined)
+                  v.countInStock = Number(incoming.countInStock);
+                if (incoming.offerPrice !== undefined)
+                  v.offerPrice = Number(incoming.offerPrice);
+                if (incoming.mrp !== undefined) v.mrp = Number(incoming.mrp);
               }
             });
           }
-        });
-      } else if (existingProduct.productType === "WeightPack") {
-        variantsRaw.forEach((incoming) => {
-          const v = inv.flatVariants.find(
-            (fv) => fv._id.toString() === incoming._id?.toString()
-          );
-          if (v) {
-            if (incoming.countInStock !== undefined) v.countInStock = Number(incoming.countInStock);
-            if (incoming.offerPrice   !== undefined) v.offerPrice   = Number(incoming.offerPrice);
-            if (incoming.mrp          !== undefined) v.mrp          = Number(incoming.mrp);
+        }
+      }
+
+      existingProduct.franchiseInventories[invIndex] = inv;
+      existingProduct.markModified("franchiseInventories");
+
+      // Save old inventory before updating
+      const oldInventory = JSON.parse(
+        JSON.stringify(existingProduct.franchiseInventories[invIndex]),
+      );
+
+      existingProduct.franchiseInventories[invIndex] = inv;
+      existingProduct.markModified("franchiseInventories");
+
+      await existingProduct.save();
+
+      try {
+        const updatedInventory = existingProduct.franchiseInventories[invIndex];
+
+        // WeightPack variants
+        if (existingProduct.productType === "WeightPack") {
+          for (const oldVariant of oldInventory.flatVariants || []) {
+            const newVariant = updatedInventory.flatVariants?.find(
+              (v) => v._id.toString() === oldVariant._id.toString(),
+            );
+
+            if (
+              oldVariant.countInStock <= 0 &&
+              newVariant &&
+              newVariant.countInStock > 0
+            ) {
+              await notifyBackInStockUsers({
+                product: existingProduct,
+                variantId: newVariant._id,
+                franchiseId,
+                triggeredBy: req.user?._id,
+              });
+            }
           }
-        });
-      }
-    }
-  }
+        }
 
-  existingProduct.franchiseInventories[invIndex] = inv;
-  existingProduct.markModified("franchiseInventories");
+        // ColorSize variants
+        if (existingProduct.productType === "ColorSize") {
+          for (const oldColor of oldInventory.colorVariants || []) {
+            const newColor = updatedInventory.colorVariants?.find(
+              (c) => c._id.toString() === oldColor._id.toString(),
+            );
 
-// Save old inventory before updating
-const oldInventory = JSON.parse(
-  JSON.stringify(existingProduct.franchiseInventories[invIndex])
-);
+            if (!newColor) continue;
 
-existingProduct.franchiseInventories[invIndex] = inv;
-existingProduct.markModified("franchiseInventories");
+            for (const oldSize of oldColor.sizes || []) {
+              const newSize = newColor.sizes?.find(
+                (s) => s._id.toString() === oldSize._id.toString(),
+              );
 
-await existingProduct.save();
+              if (
+                oldSize.countInStock <= 0 &&
+                newSize &&
+                newSize.countInStock > 0
+              ) {
+                await notifyBackInStockUsers({
+                  product: existingProduct,
+                  variantId: newSize._id,
+                  franchiseId,
+                  triggeredBy: req.user?._id,
+                });
+              }
+            }
+          }
+        }
 
-try {
-  const updatedInventory = existingProduct.franchiseInventories[invIndex];
-
-  // WeightPack variants
-  if (existingProduct.productType === "WeightPack") {
-    for (const oldVariant of oldInventory.flatVariants || []) {
-      const newVariant = updatedInventory.flatVariants?.find(
-        (v) => v._id.toString() === oldVariant._id.toString()
-      );
-
-      if (
-        oldVariant.countInStock <= 0 &&
-        newVariant &&
-        newVariant.countInStock > 0
-      ) {
-        await notifyBackInStockUsers({
-          product: existingProduct,
-          variantId: newVariant._id,
-          franchiseId,
-          triggeredBy: req.user?._id,
-        });
-      }
-    }
-  }
-
-  // ColorSize variants
-  if (existingProduct.productType === "ColorSize") {
-    for (const oldColor of oldInventory.colorVariants || []) {
-      const newColor = updatedInventory.colorVariants?.find(
-        (c) => c._id.toString() === oldColor._id.toString()
-      );
-
-      if (!newColor) continue;
-
-      for (const oldSize of oldColor.sizes || []) {
-        const newSize = newColor.sizes?.find(
-          (s) => s._id.toString() === oldSize._id.toString()
-        );
-
+        // Simple product
         if (
-          oldSize.countInStock <= 0 &&
-          newSize &&
-          newSize.countInStock > 0
+          oldInventory.countInStock <= 0 &&
+          updatedInventory.countInStock > 0
         ) {
           await notifyBackInStockUsers({
             product: existingProduct,
-            variantId: newSize._id,
             franchiseId,
             triggeredBy: req.user?._id,
           });
         }
+      } catch (notificationError) {
+        console.error(
+          "Franchise back-in-stock notification failed:",
+          notificationError,
+        );
       }
+
+      return res.json({
+        success: true,
+        message:
+          role === "InventoryStaff"
+            ? "Stock updated"
+            : "Store inventory updated",
+        data: existingProduct.franchiseInventories[invIndex],
+      });
     }
-  }
-
-  // Simple product
-  if (
-    oldInventory.countInStock <= 0 &&
-    updatedInventory.countInStock > 0
-  ) {
-    await notifyBackInStockUsers({
-      product: existingProduct,
-      franchiseId,
-      triggeredBy: req.user?._id,
-    });
-  }
-} catch (notificationError) {
-  console.error(
-    "Franchise back-in-stock notification failed:",
-    notificationError
-  );
-}
-
-return res.json({
-  success: true,
-  message:
-    role === "InventoryStaff"
-      ? "Stock updated"
-      : "Store inventory updated",
-  data: existingProduct.franchiseInventories[invIndex],
-});
-}
 
     // ── ADMIN: full master product update (your existing logic below) ────────
 
     // Images handling
     let updatedImages = existingProduct.images || [];
     let newImageUrls = Array.isArray(fields.images)
-      ? fields.images : (fields.images ? JSON.parse(fields.images) : []);
+      ? fields.images
+      : fields.images
+        ? JSON.parse(fields.images)
+        : [];
     let removedImages = Array.isArray(fields.removedImages)
-      ? fields.removedImages : (fields.removedImages ? JSON.parse(fields.removedImages) : []);
-    if (removedImages.length) updatedImages = updatedImages.filter(img => !removedImages.includes(img));
-    if (newImageUrls.length) updatedImages = [...updatedImages, ...newImageUrls];
+      ? fields.removedImages
+      : fields.removedImages
+        ? JSON.parse(fields.removedImages)
+        : [];
+    if (removedImages.length)
+      updatedImages = updatedImages.filter(
+        (img) => !removedImages.includes(img),
+      );
+    if (newImageUrls.length)
+      updatedImages = [...updatedImages, ...newImageUrls];
     updatedImages = [...new Set(updatedImages)];
 
     const updatedCoupons = fields.coupons
-      ? (typeof fields.coupons === "string" ? JSON.parse(fields.coupons) : fields.coupons)
+      ? typeof fields.coupons === "string"
+        ? JSON.parse(fields.coupons)
+        : fields.coupons
       : existingProduct.coupons || [];
 
-    const updatedTags = fields.tags !== undefined
-      ? (typeof fields.tags === "string" ? JSON.parse(fields.tags) : fields.tags)
-      : existingProduct.tags || [];
+    const updatedTags =
+      fields.tags !== undefined
+        ? typeof fields.tags === "string"
+          ? JSON.parse(fields.tags)
+          : fields.tags
+        : existingProduct.tags || [];
 
-    const updatedKeywords = fields.keywords !== undefined
-      ? (typeof fields.keywords === "string" ? JSON.parse(fields.keywords) : fields.keywords)
-      : existingProduct.keywords || [];
+    const updatedKeywords =
+      fields.keywords !== undefined
+        ? typeof fields.keywords === "string"
+          ? JSON.parse(fields.keywords)
+          : fields.keywords
+        : existingProduct.keywords || [];
 
     let color = existingProduct.color || { name: "", code: "" };
-    if (fields.color) color = typeof fields.color === "string" ? JSON.parse(fields.color) : fields.color;
-    color.name = color.name !== undefined ? color.name : existingProduct.color?.name || "";
+    if (fields.color)
+      color =
+        typeof fields.color === "string"
+          ? JSON.parse(fields.color)
+          : fields.color;
+    color.name =
+      color.name !== undefined ? color.name : existingProduct.color?.name || "";
     color.code = color.code || existingProduct.color?.code || "";
 
-    let size = fields.size !== undefined
-      ? (typeof fields.size === "string" ? fields.size : fields.size.value || fields.size)
-      : existingProduct.size || "";
+    let size =
+      fields.size !== undefined
+        ? typeof fields.size === "string"
+          ? fields.size
+          : fields.size.value || fields.size
+        : existingProduct.size || "";
 
     const attributes = [];
     for (const key in fields) {
@@ -850,12 +937,17 @@ return res.json({
         attributes[index][field] = fields[key];
       }
     }
-    const cleanedAttributes = attributes.filter(attr => attr.key?.trim() || attr.value?.trim());
+    const cleanedAttributes = attributes.filter(
+      (attr) => attr.key?.trim() || attr.value?.trim(),
+    );
 
     let variantsRaw = Array.isArray(fields.variants)
-      ? fields.variants : (fields.variants ? JSON.parse(fields.variants) : []);
+      ? fields.variants
+      : fields.variants
+        ? JSON.parse(fields.variants)
+        : [];
     let colorVariants = existingProduct.colorVariants || [];
-    let flatVariants  = existingProduct.flatVariants  || [];
+    let flatVariants = existingProduct.flatVariants || [];
 
     if (variantsRaw.length > 0) {
       const { productType } = fields;
@@ -875,14 +967,23 @@ return res.json({
                     size: s.size ?? existingSize.size ?? "",
                     mrp: s.mrp ?? existingSize.mrp ?? 0,
                     offerPrice: s.offerPrice ?? existingSize.offerPrice ?? 0,
-                    countInStock: s.countInStock ?? existingSize.countInStock ?? 0,
+                    countInStock:
+                      s.countInStock ?? existingSize.countInStock ?? 0,
                     sku: s.sku ?? existingSize.sku ?? "",
                     barcode: s.barcode ?? existingSize.barcode ?? "", // Preserve barcode if exists
-                    minOrderQuantity: s.minOrderQuantity ?? existingSize.minOrderQuantity ?? 1,
-                    maxOrderQuantity: s.maxOrderQuantity ?? existingSize.maxOrderQuantity ?? null,
-                    variantStockThreshold: s.variantStockThreshold ?? existingSize.variantStockThreshold ?? 5,
+                    minOrderQuantity:
+                      s.minOrderQuantity ?? existingSize.minOrderQuantity ?? 1,
+                    maxOrderQuantity:
+                      s.maxOrderQuantity ??
+                      existingSize.maxOrderQuantity ??
+                      null,
+                    variantStockThreshold:
+                      s.variantStockThreshold ??
+                      existingSize.variantStockThreshold ??
+                      5,
                   };
-                }) : existing.sizes || [],
+                })
+              : existing.sizes || [],
           };
         });
       } else if (productType === "WeightPack") {
@@ -897,130 +998,239 @@ return res.json({
             countInStock: v.countInStock ?? existing.countInStock ?? 0,
             sku: v.sku ?? existing.sku ?? "",
             barcode: v.barcode ?? existing.barcode ?? "", // Preserve barcode if exists
-            minOrderQuantity: v.minOrderQuantity ?? existing.minOrderQuantity ?? 1,
-            maxOrderQuantity: v.maxOrderQuantity ?? existing.maxOrderQuantity ?? null,
-            variantStockThreshold: v.variantStockThreshold ?? existing.variantStockThreshold ?? 5,
+            minOrderQuantity:
+              v.minOrderQuantity ?? existing.minOrderQuantity ?? 1,
+            maxOrderQuantity:
+              v.maxOrderQuantity ?? existing.maxOrderQuantity ?? null,
+            variantStockThreshold:
+              v.variantStockThreshold ?? existing.variantStockThreshold ?? 5,
           };
         });
       }
     }
 
-    flatVariants  = flatVariants.length  > 0 ? flatVariants  : JSON.parse(JSON.stringify(existingProduct.flatVariants  || []));
-    colorVariants = colorVariants.length > 0 ? colorVariants : JSON.parse(JSON.stringify(existingProduct.colorVariants || []));
+    flatVariants =
+      flatVariants.length > 0
+        ? flatVariants
+        : JSON.parse(JSON.stringify(existingProduct.flatVariants || []));
+    colorVariants =
+      colorVariants.length > 0
+        ? colorVariants
+        : JSON.parse(JSON.stringify(existingProduct.colorVariants || []));
 
-    const { name, description, mrp, offerPrice, category, subCategory, rating,
-            segment, brand, countInStock, specification, aboutTheBrand, lowStockThreshold,
-            createdBy, tax, returnable, returnWindow,
-            warrantyPeriod, isFeatured, isBestSeller, visibility, minQuantity,
-            maxQuantity, productType, outOfStock } = fields;
+    const {
+      name,
+      description,
+      mrp,
+      offerPrice,
+      category,
+      subCategory,
+      rating,
+      segment,
+      brand,
+      countInStock,
+      specification,
+      aboutTheBrand,
+      lowStockThreshold,
+      createdBy,
+      tax,
+      returnable,
+      returnWindow,
+      warrantyPeriod,
+      isFeatured,
+      isBestSeller,
+      visibility,
+      minQuantity,
+      maxQuantity,
+      productType,
+      outOfStock,
+    } = fields;
 
     const setFields = {
-      name:         name        || existingProduct.name,
-      description:  description || existingProduct.description,
-      mrp:          Number(mrp)         || existingProduct.mrp,
-      offerPrice:   Number(offerPrice)  || existingProduct.offerPrice,
+      name: name || existingProduct.name,
+      description: description || existingProduct.description,
+      mrp: Number(mrp) || existingProduct.mrp,
+      offerPrice: Number(offerPrice) || existingProduct.offerPrice,
       category,
-      subCategory: subCategory === "" ? null : (mongoose.Types.ObjectId.isValid(subCategory) ? subCategory : existingProduct.subCategory),
-      segment:     segment     === "" ? null : (mongoose.Types.ObjectId.isValid(segment)     ? segment     : existingProduct.segment),
-      brand:       brand       === "" ? null : (mongoose.Types.ObjectId.isValid(brand)        ? brand       : existingProduct.brand),
-      images:       updatedImages,
-      coupons:      updatedCoupons,
-      aboutTheBrand:    fields.aboutTheBrand    !== undefined ? fields.aboutTheBrand    : existingProduct.aboutTheBrand,
-      specification:    fields.specification    !== undefined ? fields.specification    : existingProduct.specification,
-      lowStockThreshold: Number(lowStockThreshold) || existingProduct.lowStockThreshold,
+      subCategory:
+        subCategory === ""
+          ? null
+          : mongoose.Types.ObjectId.isValid(subCategory)
+            ? subCategory
+            : existingProduct.subCategory,
+      segment:
+        segment === ""
+          ? null
+          : mongoose.Types.ObjectId.isValid(segment)
+            ? segment
+            : existingProduct.segment,
+      brand:
+        brand === ""
+          ? null
+          : mongoose.Types.ObjectId.isValid(brand)
+            ? brand
+            : existingProduct.brand,
+      images: updatedImages,
+      coupons: updatedCoupons,
+      aboutTheBrand:
+        fields.aboutTheBrand !== undefined
+          ? fields.aboutTheBrand
+          : existingProduct.aboutTheBrand,
+      specification:
+        fields.specification !== undefined
+          ? fields.specification
+          : existingProduct.specification,
+      lowStockThreshold:
+        Number(lowStockThreshold) || existingProduct.lowStockThreshold,
       createdBy,
-      rating:       Number(rating) || existingProduct.rating,
-      tax:          Number(tax)    || existingProduct.tax,
-      returnable:   returnable !== undefined ? Boolean(returnable) : existingProduct.returnable,
+      rating: Number(rating) || existingProduct.rating,
+      tax: Number(tax) || existingProduct.tax,
+      returnable:
+        returnable !== undefined
+          ? Boolean(returnable)
+          : existingProduct.returnable,
       returnWindow: Number(returnWindow) || existingProduct.returnWindow,
       warrantyPeriod: warrantyPeriod || existingProduct.warrantyPeriod,
-      isFeatured:   isFeatured  !== undefined ? Boolean(isFeatured)  : existingProduct.isFeatured,
-      isBestSeller: isBestSeller !== undefined ? Boolean(isBestSeller) : existingProduct.isBestSeller,
-      visibility:   visibility || existingProduct.visibility,
-      tags:         updatedTags,
-      keywords:     updatedKeywords,
-      color:        color || null,
-      size:         size  || null,
-      attributes:   cleanedAttributes,
+      isFeatured:
+        isFeatured !== undefined
+          ? Boolean(isFeatured)
+          : existingProduct.isFeatured,
+      isBestSeller:
+        isBestSeller !== undefined
+          ? Boolean(isBestSeller)
+          : existingProduct.isBestSeller,
+      visibility: visibility || existingProduct.visibility,
+      tags: updatedTags,
+      keywords: updatedKeywords,
+      color: color || null,
+      size: size || null,
+      attributes: cleanedAttributes,
       countInStock: Number(countInStock) || existingProduct.countInStock,
       flatVariants,
       colorVariants,
-      outOfStock:   Boolean(outOfStock) || existingProduct.outOfStock,
+      outOfStock: Boolean(outOfStock) || existingProduct.outOfStock,
       minOrderQuantity: Number(minQuantity) || existingProduct.minOrderQuantity,
       maxOrderQuantity: Number(maxQuantity) || existingProduct.maxOrderQuantity,
       productType,
-      hasVariants:  flatVariants.length > 0 || colorVariants.length > 0,
-      isEnable:     fields.isEnable === "true" || fields.isEnable === true || existingProduct.isEnable,
+      hasVariants: flatVariants.length > 0 || colorVariants.length > 0,
+      isEnable:
+        fields.isEnable === "true" ||
+        fields.isEnable === true ||
+        existingProduct.isEnable,
     };
 
-    const updatedProduct = await Product.findByIdAndUpdate(id, setFields, { new: true });
+    const updatedProduct = await Product.findByIdAndUpdate(id, setFields, {
+      new: true,
+    });
 
     await notifyBackInStock(existingProduct, updatedProduct, req);
 
     // ✅ ADDED — sync variant removals to all franchise inventories
-// When admin removes a colorVariant or flatVariant from master,
-// remove it from every store's inventory too
+    // When admin removes a colorVariant or flatVariant from master,
+    // remove it from every store's inventory too
 
-if (updatedProduct.franchiseInventories?.length > 0) {
+    if (updatedProduct.franchiseInventories?.length > 0) {
+      let inventoryModified = false;
 
-  let inventoryModified = false;
-
-  updatedProduct.franchiseInventories.forEach((inv) => {
-
-    // ── ColorSize ─────────────────────────────────────────────────────────
-    if (updatedProduct.productType === "ColorSize") {
-
-      // ✅ Remove color variants no longer in master
-      const masterColorIds = updatedProduct.colorVariants.map(
-        (cv) => cv._id.toString()
-      );
-      const beforeColorCount = inv.colorVariants.length;
-      inv.colorVariants = inv.colorVariants.filter(
-        (sc) => masterColorIds.includes(sc._id.toString())
-      );
-      if (inv.colorVariants.length !== beforeColorCount) inventoryModified = true;
-
-      // ✅ Remove sizes no longer in master (per color)
-      updatedProduct.colorVariants.forEach((masterColor) => {
-        const storeColor = inv.colorVariants.find(
-          (sc) => sc._id.toString() === masterColor._id.toString()
-        );
-        if (storeColor) {
-          const masterSizeIds = masterColor.sizes.map((s) => s._id.toString());
-          const beforeSizeCount = storeColor.sizes.length;
-          storeColor.sizes = storeColor.sizes.filter(
-            (ss) => masterSizeIds.includes(ss._id.toString())
+      updatedProduct.franchiseInventories.forEach((inv) => {
+        // ── ColorSize ─────────────────────────────────────────────────────────
+        if (updatedProduct.productType === "ColorSize") {
+          // ✅ Remove color variants no longer in master
+          const masterColorIds = updatedProduct.colorVariants.map((cv) =>
+            cv._id.toString(),
           );
-          if (storeColor.sizes.length !== beforeSizeCount) inventoryModified = true;
-        }
-      });
+          const beforeColorCount = inv.colorVariants.length;
+          inv.colorVariants = inv.colorVariants.filter((sc) =>
+            masterColorIds.includes(sc._id.toString()),
+          );
+          if (inv.colorVariants.length !== beforeColorCount)
+            inventoryModified = true;
 
-      // ✅ Add new color variants / sizes not yet in store (countInStock = 0)
-      updatedProduct.colorVariants.forEach((masterColor) => {
-        const storeColor = inv.colorVariants.find(
-          (sc) => sc._id.toString() === masterColor._id.toString()
-        );
-        if (!storeColor) {
-          inv.colorVariants.push({
-            ...JSON.parse(JSON.stringify(
-              masterColor.toObject ? masterColor.toObject() : masterColor
-            )),
-            sizes: masterColor.sizes.map((s) => ({
-              ...JSON.parse(JSON.stringify(s.toObject ? s.toObject() : s)),
-              countInStock: 0,
-            })),
-          });
-          inventoryModified = true;
-        } else {
-          masterColor.sizes.forEach((masterSize) => {
-            const storeSize = storeColor.sizes.find(
-              (ss) => ss._id.toString() === masterSize._id.toString()
+          // ✅ Remove sizes no longer in master (per color)
+          updatedProduct.colorVariants.forEach((masterColor) => {
+            const storeColor = inv.colorVariants.find(
+              (sc) => sc._id.toString() === masterColor._id.toString(),
             );
-            if (!storeSize) {
-              storeColor.sizes.push({
-                ...JSON.parse(JSON.stringify(
-                  masterSize.toObject ? masterSize.toObject() : masterSize
-                )),
+            if (storeColor) {
+              const masterSizeIds = masterColor.sizes.map((s) =>
+                s._id.toString(),
+              );
+              const beforeSizeCount = storeColor.sizes.length;
+              storeColor.sizes = storeColor.sizes.filter((ss) =>
+                masterSizeIds.includes(ss._id.toString()),
+              );
+              if (storeColor.sizes.length !== beforeSizeCount)
+                inventoryModified = true;
+            }
+          });
+
+          // ✅ Add new color variants / sizes not yet in store (countInStock = 0)
+          updatedProduct.colorVariants.forEach((masterColor) => {
+            const storeColor = inv.colorVariants.find(
+              (sc) => sc._id.toString() === masterColor._id.toString(),
+            );
+            if (!storeColor) {
+              inv.colorVariants.push({
+                ...JSON.parse(
+                  JSON.stringify(
+                    masterColor.toObject ? masterColor.toObject() : masterColor,
+                  ),
+                ),
+                sizes: masterColor.sizes.map((s) => ({
+                  ...JSON.parse(JSON.stringify(s.toObject ? s.toObject() : s)),
+                  countInStock: 0,
+                })),
+              });
+              inventoryModified = true;
+            } else {
+              masterColor.sizes.forEach((masterSize) => {
+                const storeSize = storeColor.sizes.find(
+                  (ss) => ss._id.toString() === masterSize._id.toString(),
+                );
+                if (!storeSize) {
+                  storeColor.sizes.push({
+                    ...JSON.parse(
+                      JSON.stringify(
+                        masterSize.toObject
+                          ? masterSize.toObject()
+                          : masterSize,
+                      ),
+                    ),
+                    countInStock: 0,
+                  });
+                  inventoryModified = true;
+                }
+              });
+            }
+          });
+        }
+
+        // ── WeightPack ────────────────────────────────────────────────────────
+        if (updatedProduct.productType === "WeightPack") {
+          // ✅ Remove flat variants no longer in master
+          const masterVariantIds = updatedProduct.flatVariants.map((v) =>
+            v._id.toString(),
+          );
+          const beforeCount = inv.flatVariants.length;
+          inv.flatVariants = inv.flatVariants.filter((sv) =>
+            masterVariantIds.includes(sv._id.toString()),
+          );
+          if (inv.flatVariants.length !== beforeCount) inventoryModified = true;
+
+          // ✅ Add new flat variants not yet in store (countInStock = 0)
+          updatedProduct.flatVariants.forEach((masterVariant) => {
+            const existsInStore = inv.flatVariants.find(
+              (sv) => sv._id.toString() === masterVariant._id.toString(),
+            );
+            if (!existsInStore) {
+              inv.flatVariants.push({
+                ...JSON.parse(
+                  JSON.stringify(
+                    masterVariant.toObject
+                      ? masterVariant.toObject()
+                      : masterVariant,
+                  ),
+                ),
                 countInStock: 0,
               });
               inventoryModified = true;
@@ -1028,57 +1238,24 @@ if (updatedProduct.franchiseInventories?.length > 0) {
           });
         }
       });
+
+      if (inventoryModified) {
+        updatedProduct.markModified("franchiseInventories");
+        await updatedProduct.save();
+      }
     }
-
-    // ── WeightPack ────────────────────────────────────────────────────────
-    if (updatedProduct.productType === "WeightPack") {
-
-      // ✅ Remove flat variants no longer in master
-      const masterVariantIds = updatedProduct.flatVariants.map(
-        (v) => v._id.toString()
-      );
-      const beforeCount = inv.flatVariants.length;
-      inv.flatVariants = inv.flatVariants.filter(
-        (sv) => masterVariantIds.includes(sv._id.toString())
-      );
-      if (inv.flatVariants.length !== beforeCount) inventoryModified = true;
-
-      // ✅ Add new flat variants not yet in store (countInStock = 0)
-      updatedProduct.flatVariants.forEach((masterVariant) => {
-        const existsInStore = inv.flatVariants.find(
-          (sv) => sv._id.toString() === masterVariant._id.toString()
-        );
-        if (!existsInStore) {
-          inv.flatVariants.push({
-            ...JSON.parse(JSON.stringify(
-              masterVariant.toObject ? masterVariant.toObject() : masterVariant
-            )),
-            countInStock: 0,
-          });
-          inventoryModified = true;
-        }
-      });
-    }
-  });
-
-  if (inventoryModified) {
-    updatedProduct.markModified("franchiseInventories");
-    await updatedProduct.save();
-  }
-}
     res.json({
       success: true,
       message: "Product updated successfully",
       data: updatedProduct,
     });
-
   } catch (err) {
     console.error("Error in updateProductDetails:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-//  Delete product version 1.0 
+//  Delete product version 1.0
 // const deleteProductById = asyncHandler(async (req, res) => {
 //   try {
 //     const product = await Product.findByIdAndDelete(req.params.id);
@@ -1095,24 +1272,15 @@ if (updatedProduct.franchiseInventories?.length > 0) {
 //   }
 // });
 
-const notifyBackInStock = async (
-  existingProduct,
-  updatedProduct,
-  req
-) => {
+const notifyBackInStock = async (existingProduct, updatedProduct, req) => {
   const wasOutOfStock =
-    existingProduct.countInStock <= 0 &&
-    existingProduct.outOfStock === true;
+    existingProduct.countInStock <= 0 && existingProduct.outOfStock === true;
 
   const isNowInStock =
     updatedProduct.countInStock > 0 ||
-    updatedProduct.flatVariants?.some(
-      (v) => v.countInStock > 0
-    ) ||
+    updatedProduct.flatVariants?.some((v) => v.countInStock > 0) ||
     updatedProduct.colorVariants?.some((color) =>
-      color.sizes?.some(
-        (size) => size.countInStock > 0
-      )
+      color.sizes?.some((size) => size.countInStock > 0),
     );
 
   if (!wasOutOfStock || !isNowInStock) return;
@@ -1137,14 +1305,10 @@ const notifyBackInStock = async (
       referenceModel: "Product",
     });
 
-    await sendToUser(
-      sub.userId._id,
-      "productBackInStock",
-      {
-        message: messageText,
-        product: updatedProduct,
-      }
-    );
+    await sendToUser(sub.userId._id, "productBackInStock", {
+      message: messageText,
+      product: updatedProduct,
+    });
 
     if (sub.userId?.fcmToken) {
       try {
@@ -1160,10 +1324,7 @@ const notifyBackInStock = async (
           },
         });
       } catch (err) {
-        console.error(
-          `FCM failed for user ${sub.userId._id}:`,
-          err.message
-        );
+        console.error(`FCM failed for user ${sub.userId._id}:`, err.message);
       }
     }
   }
@@ -1177,10 +1338,9 @@ const notifyBackInStock = async (
       $set: {
         notified: true,
       },
-    }
+    },
   );
 };
-
 
 // Delete Segment version 1.1 with ref check then delete if ref not existed in any model
 const deleteProductById = asyncHandler(async (req, res) => {
@@ -1193,7 +1353,9 @@ const deleteProductById = asyncHandler(async (req, res) => {
     }
 
     // Check if this product is referenced anywhere
-    const references = await checkModelReferences("Product", id, { sampleLimit: 5 });
+    const references = await checkModelReferences("Product", id, {
+      sampleLimit: 5,
+    });
 
     if (Object.keys(references).length > 0) {
       const refSummary = Object.entries(references)
@@ -1226,7 +1388,6 @@ const deleteProductById = asyncHandler(async (req, res) => {
     res.status(500).json({ error: "Server error", details: error.message });
   }
 });
-
 
 const fetchProducts = asyncHandler(async (req, res) => {
   try {
@@ -1362,42 +1523,47 @@ const fetchProductById = asyncHandler(async (req, res) => {
 
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-const { franchiseId: queryFranchiseId } = req.query;
-const role = req.user?.role;
+    const { franchiseId: queryFranchiseId } = req.query;
+    const role = req.user?.role;
 
-const effectiveFranchiseId =
-  role === "StoreManager"
-    ? req.user?.franchiseId?.toString()
-    : queryFranchiseId || req.user?.franchiseId?.toString() || null;
+    const effectiveFranchiseId =
+      role === "StoreManager"
+        ? req.user?.franchiseId?.toString()
+        : queryFranchiseId || req.user?.franchiseId?.toString() || null;
 
-if (queryFranchiseId && !mongoose.Types.ObjectId.isValid(queryFranchiseId)) {
-  return res.status(400).json({ message: "Invalid franchise ID" });
-}
+    if (
+      queryFranchiseId &&
+      !mongoose.Types.ObjectId.isValid(queryFranchiseId)
+    ) {
+      return res.status(400).json({ message: "Invalid franchise ID" });
+    }
 
-// Admin without franchiseId — return full master data
-if (!effectiveFranchiseId) {
-  return res.status(200).json({ success: true, product });
-}
+    // Admin without franchiseId — return full master data
+    if (!effectiveFranchiseId) {
+      return res.status(200).json({ success: true, product });
+    }
 
-// StoreManager / Admin with franchiseId — overlay store inventory
-const inv = product.franchiseInventories?.find(
-  (fi) => fi.franchiseId.toString() === effectiveFranchiseId
-);
-    const productData = inv ? {
-      ...product,
-      mrp:          inv.mrp,
-      offerPrice:   inv.offerPrice,
-      countInStock: inv.countInStock,
-      outOfStock:   inv.outOfStock,
-      isEnable:     inv.isEnable,
-      minOrderQuantity: inv.minOrderQuantity,
-      maxOrderQuantity: inv.maxOrderQuantity,
-      flatVariants:  inv.flatVariants,
-      colorVariants: inv.colorVariants,
-      lowStockThreshold: inv.lowStockThreshold,
-      franchiseInventory:   inv,
-      franchiseInventories: undefined,
-    } : { ...product, franchiseInventories: undefined };
+    // StoreManager / Admin with franchiseId — overlay store inventory
+    const inv = product.franchiseInventories?.find(
+      (fi) => fi.franchiseId.toString() === effectiveFranchiseId,
+    );
+    const productData = inv
+      ? {
+          ...product,
+          mrp: inv.mrp,
+          offerPrice: inv.offerPrice,
+          countInStock: inv.countInStock,
+          outOfStock: inv.outOfStock,
+          isEnable: inv.isEnable,
+          minOrderQuantity: inv.minOrderQuantity,
+          maxOrderQuantity: inv.maxOrderQuantity,
+          flatVariants: inv.flatVariants,
+          colorVariants: inv.colorVariants,
+          lowStockThreshold: inv.lowStockThreshold,
+          franchiseInventory: inv,
+          franchiseInventories: undefined,
+        }
+      : { ...product, franchiseInventories: undefined };
 
     res.status(200).json({ success: true, product: productData });
   } catch (error) {
@@ -1468,28 +1634,28 @@ const fetchProductByIdByUser = asyncHandler(async (req, res) => {
 
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    const franchiseId = req.user?.franchiseId?.toString()
-                     || req.query.franchiseId || null;
+    const franchiseId =
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
 
-                     console.log(franchiseId)
+    console.log(franchiseId);
 
     // Overlay store inventory if franchiseId present
     let productData = product;
-    console.log(product.franchiseInventories)
+    console.log(product.franchiseInventories);
     if (franchiseId) {
       const inv = product.franchiseInventories?.find(
-        (fi) => fi.franchiseId.toString() === franchiseId
+        (fi) => fi.franchiseId.toString() === franchiseId,
       );
       if (inv) {
         productData = {
           ...product,
-          mrp:          inv.mrp,
-          offerPrice:   inv.offerPrice,
+          mrp: inv.mrp,
+          offerPrice: inv.offerPrice,
           countInStock: inv.countInStock,
-          outOfStock:   inv.outOfStock,
-          flatVariants:  inv.flatVariants,
+          outOfStock: inv.outOfStock,
+          flatVariants: inv.flatVariants,
           colorVariants: inv.colorVariants,
-          isEnable:      inv.isEnable,
+          isEnable: inv.isEnable,
           minOrderQuantity: inv.minOrderQuantity,
           maxOrderQuantity: inv.maxOrderQuantity,
           lowStockThreshold: inv.lowStockThreshold,
@@ -1501,7 +1667,9 @@ const fetchProductByIdByUser = asyncHandler(async (req, res) => {
     let isSubscribedForStockAlert = false;
     if (req.user?._id) {
       const subscription = await stockNotificationSchema.findOne({
-        userId: req.user._id, productId: product._id, notified: false,
+        userId: req.user._id,
+        productId: product._id,
+        notified: false,
       });
       isSubscribedForStockAlert = !!subscription;
     }
@@ -1606,83 +1774,83 @@ const overlayInventory = (products, franchiseId) => {
   if (!franchiseId) return products;
   return products.map((p) => {
     const inv = p.franchiseInventories?.find(
-      (fi) => fi.franchiseId.toString() === franchiseId
+      (fi) => fi.franchiseId.toString() === franchiseId,
     );
     if (!inv) return { ...p, franchiseInventories: undefined };
     return {
       ...p,
-      mrp:               inv.mrp,
-      offerPrice:        inv.offerPrice,
-      countInStock:      inv.countInStock,
-      outOfStock:        inv.outOfStock,
-      isEnable:          inv.isEnable,
-      minOrderQuantity:  inv.minOrderQuantity,
-      maxOrderQuantity:  inv.maxOrderQuantity,
-      flatVariants:      inv.flatVariants,
-      colorVariants:     inv.colorVariants,
+      mrp: inv.mrp,
+      offerPrice: inv.offerPrice,
+      countInStock: inv.countInStock,
+      outOfStock: inv.outOfStock,
+      isEnable: inv.isEnable,
+      minOrderQuantity: inv.minOrderQuantity,
+      maxOrderQuantity: inv.maxOrderQuantity,
+      flatVariants: inv.flatVariants,
+      colorVariants: inv.colorVariants,
       lowStockThreshold: inv.lowStockThreshold,
-      franchiseInventory:   inv,
+      franchiseInventory: inv,
       franchiseInventories: undefined,
     };
   });
 };
 const fetchAllProducts = asyncHandler(async (req, res) => {
   try {
-    let { page, limit, search, brand, category, subCategory, segment } = req.query;
+    let { page, limit, search, brand, category, subCategory, segment } =
+      req.query;
 
-    const role        = req.user?.role;
+    const role = req.user?.role;
 
-    const franchiseId = req.user?.franchiseId?.toString()
-                     || req.query.franchiseId
-                     || null;
+    const franchiseId =
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
 
     console.log("franchiseId:", franchiseId, "role:", role);
 
     const searchQuery = { isAvailable: true };
 
- if (search) {
-  const searchRegex = new RegExp(search.trim(), "i");
+    if (search) {
+      const searchRegex = new RegExp(search.trim(), "i");
 
-  searchQuery.$or = [
-    // Product name
-    { name: searchRegex },
+      searchQuery.$or = [
+        // Product name
+        { name: searchRegex },
 
-    // Description
-    { description: searchRegex },
+        // Description
+        { description: searchRegex },
 
-    // Tags
-    { tags: { $in: [searchRegex] } },
+        // Tags
+        { tags: { $in: [searchRegex] } },
 
-    // Keywords
-    { keywords: { $in: [searchRegex] } },
+        // Keywords
+        { keywords: { $in: [searchRegex] } },
 
-    // Product size
-    { size: searchRegex },
+        // Product size
+        { size: searchRegex },
 
-    // WeightPack variant size
-    { "flatVariants.size": searchRegex },
+        // WeightPack variant size
+        { "flatVariants.size": searchRegex },
 
-    // ColorSize variant size
-    { "colorVariants.sizes.size": searchRegex },
+        // ColorSize variant size
+        { "colorVariants.sizes.size": searchRegex },
 
-    // Optional SKU search
-    { "flatVariants.sku": searchRegex },
-    { "colorVariants.sizes.sku": searchRegex },
-  ];
-}
+        // Optional SKU search
+        { "flatVariants.sku": searchRegex },
+        { "colorVariants.sizes.sku": searchRegex },
+      ];
+    }
 
-    if (brand)       searchQuery.brand       = brand;
-    if (category)    searchQuery.category    = category;
+    if (brand) searchQuery.brand = brand;
+    if (category) searchQuery.category = category;
     if (subCategory) searchQuery.subCategory = subCategory;
-    if (segment)     searchQuery.segment     = segment;
+    if (segment) searchQuery.segment = segment;
 
     // ✅ FIXED — apply for anyone with franchiseId, not just "Customer"
     if (franchiseId) {
       searchQuery.franchiseInventories = {
         $elemMatch: {
           franchiseId: new mongoose.Types.ObjectId(franchiseId),
-          isEnable:    true,
-          outOfStock:  false,
+          isEnable: true,
+          outOfStock: false,
         },
       };
       if (role !== "StoreManager" && role !== "Admin") {
@@ -1700,28 +1868,28 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 
     let pagination = null;
     if (page && limit) {
-      page  = parseInt(page);
+      page = parseInt(page);
       limit = parseInt(limit);
       const skip = (page - 1) * limit;
       query = query.skip(skip).limit(limit);
       const totalProducts = await Product.countDocuments(searchQuery);
       pagination = {
-        currentPage:  page,
-        totalPages:   Math.ceil(totalProducts / limit),
+        currentPage: page,
+        totalPages: Math.ceil(totalProducts / limit),
         totalProducts,
       };
     }
 
-    const products         = await query.lean();
+    const products = await query.lean();
     const filteredProducts = products.filter((p) => p.category !== null);
-    const data             = overlayInventory(filteredProducts, franchiseId);
+    const data = overlayInventory(filteredProducts, franchiseId);
 
     res.json({ success: true, data, pagination });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Server Error", message: error.message });
   }
-});// const fetchAllProductsByAdmin = asyncHandler(async (req, res) => {
+}); // const fetchAllProductsByAdmin = asyncHandler(async (req, res) => {
 //   try {
 //     let { page, limit, search, brand, category, subCategory, segment, isAvailable } = req.query;
 
@@ -1735,7 +1903,6 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 //       ];
 //     }
 
-    
 //     // Filters
 //     if (brand) searchQuery.brand = brand;
 //     if (category) searchQuery.category = category;
@@ -1790,7 +1957,6 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 //     topUnavailableParent, // null if none unavailable
 //   };
 // });
-
 
 //     res.json({
 //       success: true,
@@ -1889,7 +2055,7 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 //           storeInventory: storeInv || null,  // Their store's stock/price
 //         };
 //       });
-      
+
 //       res.json({
 //         success: true,
 //         data: enrichedProducts,
@@ -1986,13 +2152,13 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 //     // 🔥 FRANCHISE USERS (StoreManager/Customer): Add THEIR store data to ALL products
 //     if (req.franchiseId) {  // Works for both StoreManager & Customer with franchiseId
 //       console.log('🔥 FRANCHISE MODE - Enriching ALL products with store data');
-      
+
 //       const enrichedProducts = productsWithParentStatus.map(product => {
 //         // Find THIS user's store inventory for THIS product
 //         const storeInv = product.franchiseInventories?.find(
 //           inv => inv.franchiseId.toString() === req.franchiseId.toString()
 //         );
-        
+
 //         return {
 //           ...product,
 //           storeInventory: storeInv || null,  // null if no store stock
@@ -2005,7 +2171,7 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 //           })
 //         };
 //       });
-      
+
 //       res.json({
 //         success: true,
 //         data: enrichedProducts,     // ✅ ALL products + store data where available
@@ -2031,7 +2197,7 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 //   }
 // });
 
-// version - 1.4 
+// version - 1.4
 // const fetchAllProductsByAdmin = asyncHandler(async (req, res) => {
 //   try {
 //     let { page, limit, search, brand, category, subCategory, segment,
@@ -2121,70 +2287,79 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
 
 const fetchAllProductsByAdmin = asyncHandler(async (req, res) => {
   try {
-    let { page, limit, search, brand, category, subCategory, segment, isEnable,outOfStock,
-          isAvailable, franchiseId: queryFranchiseId } = req.query;
+    let {
+      page,
+      limit,
+      search,
+      brand,
+      category,
+      subCategory,
+      segment,
+      isEnable,
+      outOfStock,
+      isAvailable,
+      franchiseId: queryFranchiseId,
+    } = req.query;
 
     const role = req.user?.role;
 
-    const effectiveFranchiseId = role === "StoreManager"
-      ? req.user.franchiseId?.toString()
-      : queryFranchiseId || null;
+    const effectiveFranchiseId =
+      role === "StoreManager"
+        ? req.user.franchiseId?.toString()
+        : queryFranchiseId || null;
 
     const searchQuery = {};
-if (search) {
-  const searchRegex = new RegExp(search.trim(), "i");
+    if (search) {
+      const searchRegex = new RegExp(search.trim(), "i");
 
-  searchQuery.$or = [
-    // Product fields
-    { name: searchRegex },
-    { description: searchRegex },
+      searchQuery.$or = [
+        // Product fields
+        { name: searchRegex },
+        { description: searchRegex },
 
-    // SEO fields
-    { tags: searchRegex },
-    { keywords: searchRegex },
+        // SEO fields
+        { tags: searchRegex },
+        { keywords: searchRegex },
 
-    // Weight/Pack variant sizes
-    { "flatVariants.size": searchRegex },
+        // Weight/Pack variant sizes
+        { "flatVariants.size": searchRegex },
 
-    // Color variant name
-    { "colorVariants.name": searchRegex },
+        // Color variant name
+        { "colorVariants.name": searchRegex },
 
-    // Color variant size
-    { "colorVariants.sizes.size": searchRegex },
-  ];
-}
-    if (brand)       searchQuery.brand       = brand;
-    if (category)    searchQuery.category    = category;
+        // Color variant size
+        { "colorVariants.sizes.size": searchRegex },
+      ];
+    }
+    if (brand) searchQuery.brand = brand;
+    if (category) searchQuery.category = category;
     if (subCategory) searchQuery.subCategory = subCategory;
-    if (segment)     searchQuery.segment     = segment;
-    if (isAvailable === "true")  searchQuery.isAvailable = true;
+    if (segment) searchQuery.segment = segment;
+    if (isAvailable === "true") searchQuery.isAvailable = true;
     if (isAvailable === "false") searchQuery.isAvailable = false;
-    
 
     // ✅ FIXED — $elemMatch instead of dot notation
-      if (effectiveFranchiseId) {
+    if (effectiveFranchiseId) {
       // ✅ Build $elemMatch dynamically — only add fields that were actually passed
       const elemMatch = {
         franchiseId: new mongoose.Types.ObjectId(effectiveFranchiseId),
       };
 
       // ✅ Convert string → boolean only if provided
-      if (isEnable === "true")  elemMatch.isEnable   = true;
-      if (isEnable === "false") elemMatch.isEnable   = false;
-      if (outOfStock === "true")  elemMatch.outOfStock = true;
+      if (isEnable === "true") elemMatch.isEnable = true;
+      if (isEnable === "false") elemMatch.isEnable = false;
+      if (outOfStock === "true") elemMatch.outOfStock = true;
       if (outOfStock === "false") elemMatch.outOfStock = false;
 
       searchQuery.franchiseInventories = { $elemMatch: elemMatch };
-
     } else {
       // ── Admin without franchiseId — filter master product fields ─────────────
       // isEnable and outOfStock apply to master product, not franchise inventory
-      if (isEnable   === "true")  searchQuery.isEnable   = true;
-      if (isEnable   === "false") searchQuery.isEnable   = false;
-      if (outOfStock === "true")  searchQuery.outOfStock = true;
+      if (isEnable === "true") searchQuery.isEnable = true;
+      if (isEnable === "false") searchQuery.isEnable = false;
+      if (outOfStock === "true") searchQuery.outOfStock = true;
       if (outOfStock === "false") searchQuery.outOfStock = false;
     }
-
 
     let query = Product.find(searchQuery)
       .populate("brand")
@@ -2196,16 +2371,20 @@ if (search) {
 
     let pagination = null;
     if (page && limit) {
-      page  = parseInt(page);
+      page = parseInt(page);
       limit = parseInt(limit);
       query = query.skip((page - 1) * limit).limit(limit);
       const total = await Product.countDocuments(searchQuery);
-      pagination = { currentPage: page, totalPages: Math.ceil(total / limit), total };
+      pagination = {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        total,
+      };
     }
 
     const products = await query.lean();
 
-const data = overlayInventory(products, effectiveFranchiseId);
+    const data = overlayInventory(products, effectiveFranchiseId);
     res.json({ success: true, data, pagination });
   } catch (error) {
     res.status(500).json({ error: "Server Error", message: error.message });
@@ -2241,7 +2420,7 @@ const data = overlayInventory(products, effectiveFranchiseId);
 //       .populate("segment", "name")
 //       .limit(10);
 
-//     // Match Categories 
+//     // Match Categories
 //     const categories = await categoryModel.find({
 //       isAvailable: true,
 //       $or: [
@@ -2312,9 +2491,7 @@ const productSearch = asyncHandler(async (req, res) => {
 
     const trimmed = query.trim();
     const franchiseId =
-      req.user?.franchiseId?.toString() ||
-      req.query.franchiseId ||
-      null;
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
 
     const regex = new RegExp(trimmed, "i");
 
@@ -2337,16 +2514,15 @@ const productSearch = asyncHandler(async (req, res) => {
         { tags: regex },
         { keywords: regex },
 
-        { sku: regex },                 // ⭐ NEW -> Search Product SKU
-        { barcode: regex },             // ⭐ NEW -> Search Product Barcode
+        { sku: regex }, // ⭐ NEW -> Search Product SKU
+        { barcode: regex }, // ⭐ NEW -> Search Product Barcode
 
         { tags: wordRegex },
         { keywords: wordRegex },
 
         { "flatVariants.size": regex },
         { "flatVariants.sku": regex },
-        { "flatVariants.barcode": regex },   // ⭐ NEW -> Search WeightPack Barcode
-
+        { "flatVariants.barcode": regex }, // ⭐ NEW -> Search WeightPack Barcode
 
         { "colorVariants.name": regex },
         { "colorVariants.sizes.size": regex },
@@ -2368,72 +2544,71 @@ const productSearch = asyncHandler(async (req, res) => {
 
     // ---------------- FETCH DATA ----------------
 
-    const [
-      rawProducts,
-      categories,
-      subCategories,
-      segments,
-      brands,
-    ] = await Promise.all([
-      Product.find(productQuery)
-        .populate("category", "name")
-        .populate("brand", "name")
-        .populate("subCategory", "name")
-        .populate("segment", "name")
-        .lean(),
+    const [rawProducts, categories, subCategories, segments, brands] =
+      await Promise.all([
+        Product.find(productQuery)
+          .populate("category", "name")
+          .populate("brand", "name")
+          .populate("subCategory", "name")
+          .populate("segment", "name")
+          .lean(),
 
-      categoryModel.find({
-        isAvailable: true,
-        $or: [
-          { name: regex },
-          { tags: regex },
-          { keywords: regex },
-          { tags: wordRegex },
-          { keywords: wordRegex },
-        ],
-      })
-        .select("_id name image")
-        .limit(5),
+        categoryModel
+          .find({
+            isAvailable: true,
+            $or: [
+              { name: regex },
+              { tags: regex },
+              { keywords: regex },
+              { tags: wordRegex },
+              { keywords: wordRegex },
+            ],
+          })
+          .select("_id name image")
+          .limit(5),
 
-      subCategorySchema.find({
-        isAvailable: true,
-        $or: [
-          { name: regex },
-          { tags: regex },
-          { keywords: regex },
-          { tags: wordRegex },
-          { keywords: wordRegex },
-        ],
-      })
-        .select("_id name image")
-        .limit(5),
+        subCategorySchema
+          .find({
+            isAvailable: true,
+            $or: [
+              { name: regex },
+              { tags: regex },
+              { keywords: regex },
+              { tags: wordRegex },
+              { keywords: wordRegex },
+            ],
+          })
+          .select("_id name image")
+          .limit(5),
 
-      segmentSchema.find({
-        isAvailable: true,
-        $or: [
-          { name: regex },
-          { tags: regex },
-          { keywords: regex },
-          { tags: wordRegex },
-          { keywords: wordRegex },
-        ],
-      })
-        .select("_id name image")
-        .limit(5),
+        segmentSchema
+          .find({
+            isAvailable: true,
+            $or: [
+              { name: regex },
+              { tags: regex },
+              { keywords: regex },
+              { tags: wordRegex },
+              { keywords: wordRegex },
+            ],
+          })
+          .select("_id name image")
+          .limit(5),
 
-      brand.find({
-        isAvailable: true,
-        $or: [
-          { name: regex },
-          { tags: regex },
-          { keywords: regex },
-          { tags: wordRegex },
-          { keywords: wordRegex },
-        ],
-      })
-        .select("_id name image")
-        .limit(5),
-    ]);
+        brand
+          .find({
+            isAvailable: true,
+            $or: [
+              { name: regex },
+              { tags: regex },
+              { keywords: regex },
+              { tags: wordRegex },
+              { keywords: wordRegex },
+            ],
+          })
+          .select("_id name image")
+          .limit(5),
+      ]);
 
     // ---------------- INVENTORY OVERLAY ----------------
 
@@ -2449,9 +2624,7 @@ const productSearch = asyncHandler(async (req, res) => {
         const description = (product.description || "").toLowerCase();
 
         const tags = (product.tags || []).map((t) => t.toLowerCase());
-        const keywords = (product.keywords || []).map((k) =>
-          k.toLowerCase()
-        );
+        const keywords = (product.keywords || []).map((k) => k.toLowerCase());
 
         // ⭐ NEW -> Product level SKU
         const sku = (product.sku || "").toLowerCase();
@@ -2465,25 +2638,19 @@ const productSearch = asyncHandler(async (req, res) => {
           else if (name.startsWith(word)) score += 800;
           else if (name.includes(word)) score += 600;
 
-           // ================= SKU =================
+          // ================= SKU =================
 
           // ⭐ NEW -> Exact SKU match
-          if (sku === word)
-            score += 900;
-
+          if (sku === word) score += 900;
           // ⭐ NEW -> Partial SKU match
-          else if (sku.includes(word))
-            score += 700;
+          else if (sku.includes(word)) score += 700;
 
           // ================= BARCODE =================
 
           // ⭐ NEW -> Barcode should get highest priority
-          if (barcode === word)
-            score += 1200;
-
+          if (barcode === word) score += 1200;
           // ⭐ NEW -> Partial barcode
-          else if (barcode.includes(word))
-            score += 1000;
+          else if (barcode.includes(word)) score += 1000;
 
           // Keyword
           if (keywords.includes(word)) score += 500;
@@ -2496,18 +2663,11 @@ const productSearch = asyncHandler(async (req, res) => {
 
           // ⭐ NEW -> Search inside WeightPack variants
           product.flatVariants?.forEach((variant) => {
-
-            if (
-              variant.barcode &&
-              variant.barcode.toLowerCase() === word
-            ) {
+            if (variant.barcode && variant.barcode.toLowerCase() === word) {
               score += 1200;
             }
 
-            if (
-              variant.sku &&
-              variant.sku.toLowerCase() === word
-            ) {
+            if (variant.sku && variant.sku.toLowerCase() === word) {
               score += 900;
             }
           });
@@ -2516,27 +2676,16 @@ const productSearch = asyncHandler(async (req, res) => {
 
           // ⭐ NEW -> Search inside Color Variant sizes
           product.colorVariants?.forEach((color) => {
-
             color.sizes?.forEach((size) => {
-
-              if (
-                size.barcode &&
-                size.barcode.toLowerCase() === word
-              ) {
+              if (size.barcode && size.barcode.toLowerCase() === word) {
                 score += 1200;
               }
 
-              if (
-                size.sku &&
-                size.sku.toLowerCase() === word
-              ) {
+              if (size.sku && size.sku.toLowerCase() === word) {
                 score += 900;
               }
-
             });
-
           });
-
         });
 
         return score;
@@ -2594,7 +2743,7 @@ const addProductReview = asyncHandler(async (req, res) => {
 
     if (product) {
       const alreadyReviewed = product.reviews.find(
-        (r) => r.user.toString() === req.user._id.toString()
+        (r) => r.user.toString() === req.user._id.toString(),
       );
 
       if (alreadyReviewed) {
@@ -2865,7 +3014,7 @@ const filterProducts = asyncHandler(async (req, res) => {
 //         if (!found) {
 //           return res.status(404).json({ success: false, error: "Variant not found" });
 //         }
-//       } 
+//       }
 //       //  Check for WeightPack variant
 //       else if (product.productType === "WeightPack") {
 //         const flatVariant = product.flatVariants.id(variantId);
@@ -2873,7 +3022,7 @@ const filterProducts = asyncHandler(async (req, res) => {
 //           return res.status(404).json({ success: false, error: "Variant not found" });
 //         }
 //         flatVariant.countInStock = Number(countInStock);
-//       } 
+//       }
 //       else {
 //         return res.status(400).json({ success: false, error: "This product has no variants" });
 //       }
@@ -2895,7 +3044,6 @@ const filterProducts = asyncHandler(async (req, res) => {
 //     res.status(500).json({ success: false, error: "Server Error" });
 //   }
 // });
-
 
 //helper function for updateStockCount
 const notifyBackInStockUsers = async ({
@@ -2960,10 +3108,7 @@ const notifyBackInStockUsers = async ({
           },
         });
       } catch (err) {
-        console.error(
-          `FCM failed for user ${sub.userId._id}:`,
-          err.message
-        );
+        console.error(`FCM failed for user ${sub.userId._id}:`, err.message);
       }
     }
   }
@@ -3110,27 +3255,34 @@ const notifyBackInStockUsers = async ({
 
 // version - 1.1
 const updateStockCount = asyncHandler(async (req, res) => {
-  const { productId }  = req.params;
+  const { productId } = req.params;
   const { countInStock, variantId, franchiseId: bodyFranchiseId } = req.body;
 
-  if (countInStock === null || countInStock === undefined || isNaN(countInStock)) {
-    return res.status(400).json({ success: false, error: "Invalid stock count" });
+  if (
+    countInStock === null ||
+    countInStock === undefined ||
+    isNaN(countInStock)
+  ) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Invalid stock count" });
   }
 
   try {
     const product = await Product.findById(productId);
-    if (!product) return res.status(404).json({ success: false, error: "Product not found" });
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, error: "Product not found" });
 
-    const role        = req.user?.role;
-    const franchiseId = req.user?.franchiseId?.toString()
-                     || bodyFranchiseId?.toString()
-                     || null;
+    const role = req.user?.role;
+    const franchiseId =
+      req.user?.franchiseId?.toString() || bodyFranchiseId?.toString() || null;
 
     // ── StoreManager / InventoryStaff: update franchise inventory only ────────
     if (franchiseId && role !== "Admin") {
-
       const inv = product.franchiseInventories.find(
-        (fi) => fi.franchiseId.toString() === franchiseId
+        (fi) => fi.franchiseId.toString() === franchiseId,
       );
       if (!inv)
         return res.status(404).json({
@@ -3144,55 +3296,73 @@ const updateStockCount = asyncHandler(async (req, res) => {
         // ── WeightPack ────────────────────────────────────────────────────────
         if (product.productType === "WeightPack") {
           const storeVariant = inv.flatVariants.find(
-            (v) => v._id.toString() === variantId
+            (v) => v._id.toString() === variantId,
           );
           if (!storeVariant)
-            return res.status(404).json({ success: false, error: "Variant not found in your store" });
+            return res.status(404).json({
+              success: false,
+              error: "Variant not found in your store",
+            });
 
           const previousVariantStock = storeVariant.countInStock;
-          storeVariant.countInStock  = newQty;
+          storeVariant.countInStock = newQty;
 
           // back-in-stock notify
           if (previousVariantStock <= 0 && newQty > 0) {
-            await notifyBackInStockUsers({ product, variantId, triggeredBy: req.user?._id });
+            await notifyBackInStockUsers({
+              product,
+              variantId,
+              triggeredBy: req.user?._id,
+            });
           }
 
-        // ── ColorSize ─────────────────────────────────────────────────────────
+          // ── ColorSize ─────────────────────────────────────────────────────────
         } else if (product.productType === "ColorSize") {
           let found = false;
           for (const color of inv.colorVariants) {
-            const size = color.sizes.find((s) => s._id.toString() === variantId);
+            const size = color.sizes.find(
+              (s) => s._id.toString() === variantId,
+            );
             if (size) {
               const previousVariantStock = size.countInStock;
               size.countInStock = newQty;
               if (previousVariantStock <= 0 && newQty > 0) {
-                await notifyBackInStockUsers({ product, variantId, triggeredBy: req.user?._id });
+                await notifyBackInStockUsers({
+                  product,
+                  variantId,
+                  triggeredBy: req.user?._id,
+                });
               }
               found = true;
               break;
             }
           }
           if (!found)
-            return res.status(404).json({ success: false, error: "Variant not found in your store" });
-
+            return res.status(404).json({
+              success: false,
+              error: "Variant not found in your store",
+            });
         } else {
-          return res.status(400).json({ success: false, error: "This product has no variants" });
+          return res
+            .status(400)
+            .json({ success: false, error: "This product has no variants" });
         }
 
         // outOfStock auto-calc for store
         if (product.productType === "WeightPack") {
-          inv.outOfStock = inv.flatVariants.every((v) => (v.countInStock || 0) === 0);
+          inv.outOfStock = inv.flatVariants.every(
+            (v) => (v.countInStock || 0) === 0,
+          );
         } else if (product.productType === "ColorSize") {
           inv.outOfStock = inv.colorVariants.every((cv) =>
-            cv.sizes.every((s) => (s.countInStock || 0) === 0)
+            cv.sizes.every((s) => (s.countInStock || 0) === 0),
           );
         }
-
       } else {
         // ── Single product store stock ─────────────────────────────────────────
-        const previousStock   = inv.countInStock;
-        inv.countInStock      = newQty;
-        inv.outOfStock        = newQty === 0;
+        const previousStock = inv.countInStock;
+        inv.countInStock = newQty;
+        inv.outOfStock = newQty === 0;
 
         if (previousStock <= 0 && newQty > 0) {
           await notifyBackInStockUsers({ product, triggeredBy: req.user?._id });
@@ -3202,9 +3372,11 @@ const updateStockCount = asyncHandler(async (req, res) => {
       await product.save();
       return res.status(200).json({
         success: true,
-        message: variantId ? "Store variant stock updated" : "Store stock updated",
+        message: variantId
+          ? "Store variant stock updated"
+          : "Store stock updated",
         storeInventory: product.franchiseInventories.find(
-          (fi) => fi.franchiseId.toString() === franchiseId
+          (fi) => fi.franchiseId.toString() === franchiseId,
         ),
       });
     }
@@ -3222,31 +3394,44 @@ const updateStockCount = asyncHandler(async (req, res) => {
             const previousVariantStock = size.countInStock;
             size.countInStock = Number(countInStock);
             if (previousVariantStock <= 0 && Number(countInStock) > 0) {
-              await notifyBackInStockUsers({ product, variantId, triggeredBy: req.user?._id });
+              await notifyBackInStockUsers({
+                product,
+                variantId,
+                triggeredBy: req.user?._id,
+              });
             }
             found = true;
             break;
           }
         }
         if (!found)
-          return res.status(404).json({ success: false, error: "Variant not found" });
+          return res
+            .status(404)
+            .json({ success: false, error: "Variant not found" });
 
-      // WeightPack
+        // WeightPack
       } else if (product.productType === "WeightPack") {
         const flatVariant = product.flatVariants.id(variantId);
         if (!flatVariant)
-          return res.status(404).json({ success: false, error: "Variant not found" });
+          return res
+            .status(404)
+            .json({ success: false, error: "Variant not found" });
 
         const previousVariantStock = flatVariant.countInStock;
-        flatVariant.countInStock   = Number(countInStock);
+        flatVariant.countInStock = Number(countInStock);
 
         if (previousVariantStock <= 0 && Number(countInStock) > 0) {
-          await notifyBackInStockUsers({ product, variantId, triggeredBy: req.user?._id });
+          await notifyBackInStockUsers({
+            product,
+            variantId,
+            triggeredBy: req.user?._id,
+          });
         }
       } else {
-        return res.status(400).json({ success: false, error: "This product has no variants" });
+        return res
+          .status(400)
+          .json({ success: false, error: "This product has no variants" });
       }
-
     } else {
       product.countInStock = Number(countInStock);
       if (previousStock <= 0 && Number(countInStock) > 0) {
@@ -3258,10 +3443,11 @@ const updateStockCount = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: variantId ? "Variant stock updated successfully" : "Product stock updated successfully",
+      message: variantId
+        ? "Variant stock updated successfully"
+        : "Product stock updated successfully",
       product,
     });
-
   } catch (error) {
     console.error("Stock update error:", error);
     res.status(500).json({ success: false, error: "Server Error" });
@@ -3405,27 +3591,32 @@ const updateStockCount = asyncHandler(async (req, res) => {
 
 const getLowStockProducts = asyncHandler(async (req, res) => {
   try {
-    const page      = parseInt(req.query.page)  || 1;
-    const limit     = parseInt(req.query.limit) || 10;
-    const skip      = (page - 1) * limit;
-    const search    = req.query.search || "";
-    let   sortField = req.query.sortBy || "createdAt";
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const search = req.query.search || "";
+    let sortField = req.query.sortBy || "createdAt";
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
-    if (sortField === "date")        sortField = "createdAt";
+    if (sortField === "date") sortField = "createdAt";
     if (sortField === "subscribers") sortField = "totalSubscribers";
 
-    const role             = req.user?.role;
+    const role = req.user?.role;
     const queryFranchiseId = req.query.franchiseId || null;
 
-    if (queryFranchiseId && !mongoose.Types.ObjectId.isValid(queryFranchiseId)) {
-      return res.status(400).json({ success: false, message: "Invalid franchise ID" });
+    if (
+      queryFranchiseId &&
+      !mongoose.Types.ObjectId.isValid(queryFranchiseId)
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid franchise ID" });
     }
 
     const effectiveFranchiseId =
       role === "Admin"
-        ? (queryFranchiseId || null)
-        : (req.user?.franchiseId?.toString() || null);
+        ? queryFranchiseId || null
+        : req.user?.franchiseId?.toString() || null;
 
     // ── Shared: build subscriber map ──────────────────────────────────────────
     const buildSubscriberMap = async (productIds) => {
@@ -3442,14 +3633,20 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
       const map = new Map();
       for (const item of subscriptionCounts) {
         const productId = item._id.productId?.toString();
-        const variantId = item._id.variantId ? item._id.variantId.toString() : "null";
+        const variantId = item._id.variantId
+          ? item._id.variantId.toString()
+          : "null";
         map.set(`${productId}_${variantId}`, item.subscriberCount || 0);
       }
       return map;
     };
 
     const getSubscriberCount = (map, productId, variantId = null) => {
-      return map.get(`${productId.toString()}_${variantId ? variantId.toString() : "null"}`) || 0;
+      return (
+        map.get(
+          `${productId.toString()}_${variantId ? variantId.toString() : "null"}`,
+        ) || 0
+      );
     };
 
     // ── FRANCHISE SCOPED — StoreManager / InventoryStaff / Admin with franchiseId ──
@@ -3459,80 +3656,89 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
         franchiseInventories: {
           $elemMatch: {
             franchiseId: new mongoose.Types.ObjectId(effectiveFranchiseId),
-            isEnable:    true,
+            isEnable: true,
           },
         },
       };
 
       const allProducts = await Product.find(
         matchQuery,
-        "name images productType franchiseInventories createdAt"
+        "name images productType franchiseInventories createdAt",
       ).lean();
 
       // ✅ Build subscriber map for these products
-      const productIds     = allProducts.map((p) => p._id);
-      const subscriberMap  = await buildSubscriberMap(productIds);
+      const productIds = allProducts.map((p) => p._id);
+      const subscriberMap = await buildSubscriberMap(productIds);
 
       const finalProducts = [];
 
       for (const product of allProducts) {
         const inv = product.franchiseInventories?.find(
-          (fi) => fi.franchiseId.toString() === effectiveFranchiseId
+          (fi) => fi.franchiseId.toString() === effectiveFranchiseId,
         );
         if (!inv) continue;
 
         // ── Single ────────────────────────────────────────────────────────────
         if (product.productType === "Single") {
           if (
-            typeof inv.countInStock      === "number" &&
+            typeof inv.countInStock === "number" &&
             typeof inv.lowStockThreshold === "number" &&
             inv.countInStock <= inv.lowStockThreshold
           ) {
-            const subscriberCount = getSubscriberCount(subscriberMap, product._id);
+            const subscriberCount = getSubscriberCount(
+              subscriberMap,
+              product._id,
+            );
             finalProducts.push({
-              _id:               product._id,
-              name:              product.name,
-              productType:       "Single",
-              images:            product.images,
-              createdAt:         product.createdAt,
-              countInStock:      inv.countInStock,
+              _id: product._id,
+              name: product.name,
+              productType: "Single",
+              images: product.images,
+              createdAt: product.createdAt,
+              countInStock: inv.countInStock,
               lowStockThreshold: inv.lowStockThreshold,
-              offerPrice:        inv.offerPrice,
-              variants:          [],
+              offerPrice: inv.offerPrice,
+              variants: [],
               subscriberCount,
-              totalSubscribers:  subscriberCount, // ✅
+              totalSubscribers: subscriberCount, // ✅
             });
           }
 
-        // ── WeightPack ────────────────────────────────────────────────────────
+          // ── WeightPack ────────────────────────────────────────────────────────
         } else if (product.productType === "WeightPack") {
           const lowStockVariants = (inv.flatVariants || [])
             .filter(
               (v) =>
-                typeof v.countInStock          === "number" &&
+                typeof v.countInStock === "number" &&
                 typeof v.variantStockThreshold === "number" &&
-                v.countInStock <= v.variantStockThreshold
+                v.countInStock <= v.variantStockThreshold,
             )
             .map((v) => ({
               ...v,
-              subscriberCount: getSubscriberCount(subscriberMap, product._id, v._id), // ✅
+              subscriberCount: getSubscriberCount(
+                subscriberMap,
+                product._id,
+                v._id,
+              ), // ✅
             }));
 
           if (lowStockVariants.length > 0) {
             finalProducts.push({
-              _id:        product._id,
-              name:       product.name,
+              _id: product._id,
+              name: product.name,
               productType: "WeightPack",
-              images:     product.images,
-              createdAt:  product.createdAt,
-              variants:   lowStockVariants,
-              totalSubscribers: lowStockVariants.reduce( // ✅
-                (sum, v) => sum + (v.subscriberCount || 0), 0
+              images: product.images,
+              createdAt: product.createdAt,
+              variants: lowStockVariants,
+              totalSubscribers: lowStockVariants.reduce(
+                // ✅
+                (sum, v) => sum + (v.subscriberCount || 0),
+                0,
               ),
             });
           }
 
-        // ── ColorSize ─────────────────────────────────────────────────────────
+          // ── ColorSize ─────────────────────────────────────────────────────────
         } else if (product.productType === "ColorSize") {
           const lowStockVariants = [];
 
@@ -3540,23 +3746,29 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
             const lowStockSizes = (color.sizes || [])
               .filter(
                 (s) =>
-                  typeof s.countInStock          === "number" &&
+                  typeof s.countInStock === "number" &&
                   typeof s.variantStockThreshold === "number" &&
-                  s.countInStock <= s.variantStockThreshold
+                  s.countInStock <= s.variantStockThreshold,
               )
               .map((s) => ({
                 ...s,
-                subscriberCount: getSubscriberCount(subscriberMap, product._id, s._id), // ✅
+                subscriberCount: getSubscriberCount(
+                  subscriberMap,
+                  product._id,
+                  s._id,
+                ), // ✅
               }));
 
             if (lowStockSizes.length > 0) {
               lowStockVariants.push({
                 colorName: color.name,
                 colorCode: color.code,
-                images:    color.images,
-                sizes:     lowStockSizes,
-                totalVariantSubscribers: lowStockSizes.reduce( // ✅
-                  (sum, s) => sum + (s.subscriberCount || 0), 0
+                images: color.images,
+                sizes: lowStockSizes,
+                totalVariantSubscribers: lowStockSizes.reduce(
+                  // ✅
+                  (sum, s) => sum + (s.subscriberCount || 0),
+                  0,
                 ),
               });
             }
@@ -3564,14 +3776,16 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
 
           if (lowStockVariants.length > 0) {
             finalProducts.push({
-              _id:        product._id,
-              name:       product.name,
+              _id: product._id,
+              name: product.name,
               productType: "ColorSize",
-              images:     product.images,
-              createdAt:  product.createdAt,
-              variants:   lowStockVariants,
-              totalSubscribers: lowStockVariants.reduce( // ✅
-                (sum, v) => sum + (v.totalVariantSubscribers || 0), 0
+              images: product.images,
+              createdAt: product.createdAt,
+              variants: lowStockVariants,
+              totalSubscribers: lowStockVariants.reduce(
+                // ✅
+                (sum, v) => sum + (v.totalVariantSubscribers || 0),
+                0,
               ),
             });
           }
@@ -3583,21 +3797,21 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
         const aVal = a[sortField] ?? 0;
         const bVal = b[sortField] ?? 0;
         if (aVal < bVal) return -1 * sortOrder;
-        if (aVal > bVal) return  1 * sortOrder;
+        if (aVal > bVal) return 1 * sortOrder;
         return 0;
       });
 
-      const totalItems        = finalProducts.length;
+      const totalItems = finalProducts.length;
       const paginatedProducts = finalProducts.slice(skip, skip + limit);
 
       return res.status(200).json({
         success: true,
         message: "Low stock products for your store",
-        count:   totalItems,
+        count: totalItems,
         products: paginatedProducts,
         pagination: {
           totalItems,
-          totalPages:  Math.ceil(totalItems / limit),
+          totalPages: Math.ceil(totalItems / limit),
           currentPage: page,
           limit,
         },
@@ -3605,23 +3819,27 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
     }
 
     // ── ADMIN — master/warehouse stock ────────────────────────────────────────
-    const searchQuery = search ? { name: { $regex: search, $options: "i" } } : {};
+    const searchQuery = search
+      ? { name: { $regex: search, $options: "i" } }
+      : {};
 
     const allProducts = await Product.find(
       searchQuery,
-      "name countInStock lowStockThreshold colorVariants flatVariants images createdAt productType"
+      "name countInStock lowStockThreshold colorVariants flatVariants images createdAt productType",
     ).lean();
 
     // ✅ Build subscriber map
-    const productIds    = allProducts.map((p) => p._id);
+    const productIds = allProducts.map((p) => p._id);
     const subscriberMap = await buildSubscriberMap(productIds);
 
     const finalProducts = [];
 
     for (const product of allProducts) {
-
       // ── ColorSize ───────────────────────────────────────────────────────────
-      if (product.productType === "ColorSize" && Array.isArray(product.colorVariants)) {
+      if (
+        product.productType === "ColorSize" &&
+        Array.isArray(product.colorVariants)
+      ) {
         const lowStockVariants = [];
 
         product.colorVariants.forEach((color) => {
@@ -3629,23 +3847,29 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
             const lowStockSizes = color.sizes
               .filter(
                 (size) =>
-                  typeof size.countInStock          === "number" &&
+                  typeof size.countInStock === "number" &&
                   typeof size.variantStockThreshold === "number" &&
-                  size.countInStock <= size.variantStockThreshold
+                  size.countInStock <= size.variantStockThreshold,
               )
               .map((size) => ({
                 ...size,
-                subscriberCount: getSubscriberCount(subscriberMap, product._id, size._id), // ✅
+                subscriberCount: getSubscriberCount(
+                  subscriberMap,
+                  product._id,
+                  size._id,
+                ), // ✅
               }));
 
             if (lowStockSizes.length > 0) {
               lowStockVariants.push({
                 colorName: color.name,
                 colorCode: color.code,
-                sizes:     lowStockSizes,
-                images:    color.images,
-                totalVariantSubscribers: lowStockSizes.reduce( // ✅
-                  (sum, s) => sum + (s.subscriberCount || 0), 0
+                sizes: lowStockSizes,
+                images: color.images,
+                totalVariantSubscribers: lowStockSizes.reduce(
+                  // ✅
+                  (sum, s) => sum + (s.subscriberCount || 0),
+                  0,
                 ),
               });
             }
@@ -3654,65 +3878,79 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
 
         if (lowStockVariants.length > 0) {
           finalProducts.push({
-            _id:        product._id,
-            name:       product.name,
+            _id: product._id,
+            name: product.name,
             productType: "ColorSize",
-            variants:   lowStockVariants,
-            images:     product.images,
-            createdAt:  product.createdAt,
-            totalSubscribers: lowStockVariants.reduce( // ✅
-              (sum, v) => sum + (v.totalVariantSubscribers || 0), 0
+            variants: lowStockVariants,
+            images: product.images,
+            createdAt: product.createdAt,
+            totalSubscribers: lowStockVariants.reduce(
+              // ✅
+              (sum, v) => sum + (v.totalVariantSubscribers || 0),
+              0,
             ),
           });
         }
 
-      // ── WeightPack ──────────────────────────────────────────────────────────
-      } else if (product.productType === "WeightPack" && Array.isArray(product.flatVariants)) {
+        // ── WeightPack ──────────────────────────────────────────────────────────
+      } else if (
+        product.productType === "WeightPack" &&
+        Array.isArray(product.flatVariants)
+      ) {
         const lowStockVariants = product.flatVariants
           .filter(
             (v) =>
-              typeof v.countInStock          === "number" &&
+              typeof v.countInStock === "number" &&
               typeof v.variantStockThreshold === "number" &&
-              v.countInStock <= v.variantStockThreshold
+              v.countInStock <= v.variantStockThreshold,
           )
           .map((v) => ({
             ...v,
-            subscriberCount: getSubscriberCount(subscriberMap, product._id, v._id), // ✅
+            subscriberCount: getSubscriberCount(
+              subscriberMap,
+              product._id,
+              v._id,
+            ), // ✅
           }));
 
         if (lowStockVariants.length > 0) {
           finalProducts.push({
-            _id:        product._id,
-            name:       product.name,
+            _id: product._id,
+            name: product.name,
             productType: "WeightPack",
-            variants:   lowStockVariants,
-            images:     product.images,
-            createdAt:  product.createdAt,
-            totalSubscribers: lowStockVariants.reduce( // ✅
-              (sum, v) => sum + (v.subscriberCount || 0), 0
+            variants: lowStockVariants,
+            images: product.images,
+            createdAt: product.createdAt,
+            totalSubscribers: lowStockVariants.reduce(
+              // ✅
+              (sum, v) => sum + (v.subscriberCount || 0),
+              0,
             ),
           });
         }
 
-      // ── Single ──────────────────────────────────────────────────────────────
+        // ── Single ──────────────────────────────────────────────────────────────
       } else {
         if (
-          typeof product.countInStock      === "number" &&
+          typeof product.countInStock === "number" &&
           typeof product.lowStockThreshold === "number" &&
           product.countInStock <= product.lowStockThreshold
         ) {
-          const subscriberCount = getSubscriberCount(subscriberMap, product._id); // ✅
+          const subscriberCount = getSubscriberCount(
+            subscriberMap,
+            product._id,
+          ); // ✅
           finalProducts.push({
-            _id:               product._id,
-            name:              product.name,
-            productType:       "Single",
-            countInStock:      product.countInStock,
+            _id: product._id,
+            name: product.name,
+            productType: "Single",
+            countInStock: product.countInStock,
             lowStockThreshold: product.lowStockThreshold,
-            images:            product.images,
-            variants:          [],
-            createdAt:         product.createdAt,
+            images: product.images,
+            variants: [],
+            createdAt: product.createdAt,
             subscriberCount,
-            totalSubscribers:  subscriberCount, // ✅
+            totalSubscribers: subscriberCount, // ✅
           });
         }
       }
@@ -3722,32 +3960,31 @@ const getLowStockProducts = asyncHandler(async (req, res) => {
       const aVal = a[sortField] ?? 0;
       const bVal = b[sortField] ?? 0;
       if (aVal < bVal) return -1 * sortOrder;
-      if (aVal > bVal) return  1 * sortOrder;
+      if (aVal > bVal) return 1 * sortOrder;
       return 0;
     });
 
-    const totalItems        = finalProducts.length;
+    const totalItems = finalProducts.length;
     const paginatedProducts = finalProducts.slice(skip, skip + limit);
 
     res.status(200).json({
       success: true,
       message: "Filtered low stock products fetched successfully",
-      count:   totalItems,
+      count: totalItems,
       products: paginatedProducts,
       pagination: {
         totalItems,
-        totalPages:  Math.ceil(totalItems / limit),
+        totalPages: Math.ceil(totalItems / limit),
         currentPage: page,
         limit,
       },
     });
-
   } catch (error) {
     console.error("Failed to fetch low stock products:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch low stock products",
-      error:   error.message,
+      error: error.message,
     });
   }
 });
@@ -3784,27 +4021,47 @@ const importProducts = async (req, res) => {
 
       // CATEGORY: Required
       let categoryName = "";
-      if (typeof productData.category === "string") categoryName = productData.category.trim();
-      else if (typeof productData.category === "object" && productData.category?.name) categoryName = productData.category.name.trim();
+      if (typeof productData.category === "string")
+        categoryName = productData.category.trim();
+      else if (
+        typeof productData.category === "object" &&
+        productData.category?.name
+      )
+        categoryName = productData.category.name.trim();
 
       if (!categoryName) {
-        errors.push({ index: i, product: productData.name, message: "Category is required." });
+        errors.push({
+          index: i,
+          product: productData.name,
+          message: "Category is required.",
+        });
         continue;
       }
 
       const categoryDoc = await categoryModel.findOne({ name: categoryName });
       if (!categoryDoc) {
-        errors.push({ index: i, product: productData.name, message: `Category '${categoryName}' is invalid.` });
+        errors.push({
+          index: i,
+          product: productData.name,
+          message: `Category '${categoryName}' is invalid.`,
+        });
         continue;
       }
 
       // BRAND: Optional, validate if passed
       let brandDoc = null;
       if (productData.brand) {
-        let brandName = typeof productData.brand === "string" ? productData.brand.trim() : productData.brand.name?.trim();
+        let brandName =
+          typeof productData.brand === "string"
+            ? productData.brand.trim()
+            : productData.brand.name?.trim();
         if (brandName) brandDoc = await brand.findOne({ name: brandName });
         if (brandName && !brandDoc) {
-          errors.push({ index: i, product: productData.name, message: `Brand '${brandName}' is invalid.` });
+          errors.push({
+            index: i,
+            product: productData.name,
+            message: `Brand '${brandName}' is invalid.`,
+          });
           continue;
         }
       }
@@ -3812,10 +4069,20 @@ const importProducts = async (req, res) => {
       // SUBCATEGORY: Optional, validate if passed
       let subCategoryDoc = null;
       if (productData.subCategory) {
-        let subCategoryName = typeof productData.subCategory === "string" ? productData.subCategory.trim() : productData.subCategory.name?.trim();
-        if (subCategoryName) subCategoryDoc = await subCategorySchema.findOne({ name: subCategoryName });
+        let subCategoryName =
+          typeof productData.subCategory === "string"
+            ? productData.subCategory.trim()
+            : productData.subCategory.name?.trim();
+        if (subCategoryName)
+          subCategoryDoc = await subCategorySchema.findOne({
+            name: subCategoryName,
+          });
         if (subCategoryName && !subCategoryDoc) {
-          errors.push({ index: i, product: productData.name, message: `SubCategory '${subCategoryName}' is invalid.` });
+          errors.push({
+            index: i,
+            product: productData.name,
+            message: `SubCategory '${subCategoryName}' is invalid.`,
+          });
           continue;
         }
       }
@@ -3824,9 +4091,14 @@ const importProducts = async (req, res) => {
       let segmentDoc = null;
       if (productData.segment) {
         let segmentName = productData.segment.trim();
-        if (segmentName) segmentDoc = await segmentSchema.findOne({ name: segmentName });
+        if (segmentName)
+          segmentDoc = await segmentSchema.findOne({ name: segmentName });
         if (segmentName && !segmentDoc) {
-          errors.push({ index: i, product: productData.name, message: `Segment '${segmentName}' is invalid.` });
+          errors.push({
+            index: i,
+            product: productData.name,
+            message: `Segment '${segmentName}' is invalid.`,
+          });
           continue;
         }
       }
@@ -3841,7 +4113,10 @@ const importProducts = async (req, res) => {
         continue;
       }
 
-      if (productData.lowStockThreshold != null && productData.countInStock < productData.lowStockThreshold) {
+      if (
+        productData.lowStockThreshold != null &&
+        productData.countInStock < productData.lowStockThreshold
+      ) {
         errors.push({
           index: i,
           product: productData.name,
@@ -3869,11 +4144,18 @@ const importProducts = async (req, res) => {
         maxOrderQuantity: productData.maxOrderQuantity || null,
         countInStock: productData.countInStock || 0,
         lowStockThreshold: productData.lowStockThreshold || 0,
-        color: { name: productData.colorName || "", code: productData.colorCode || "" },
+        color: {
+          name: productData.colorName || "",
+          code: productData.colorCode || "",
+        },
         size: productData.size || "",
-        brand: brandDoc ? { _id: brandDoc._id, name: brandDoc.name } : productData.brand || null,
+        brand: brandDoc
+          ? { _id: brandDoc._id, name: brandDoc.name }
+          : productData.brand || null,
         category: { _id: categoryDoc._id, name: categoryDoc.name },
-        subCategory: subCategoryDoc ? { _id: subCategoryDoc._id, name: subCategoryDoc.name } : productData.subCategory || null,
+        subCategory: subCategoryDoc
+          ? { _id: subCategoryDoc._id, name: subCategoryDoc.name }
+          : productData.subCategory || null,
         segment: segmentDoc ? segmentDoc.name : productData.segment || null,
       });
 
@@ -3887,12 +4169,19 @@ const importProducts = async (req, res) => {
         name: productData.name,
         productType: "Single",
         hasVariants: false,
-        color: { name: productData.colorName || "", code: productData.colorCode || "" },
+        color: {
+          name: productData.colorName || "",
+          code: productData.colorCode || "",
+        },
         size: productData.size || "",
         images: productData.images || [],
-        brand: brandDoc ? { _id: brandDoc._id, name: brandDoc.name } : productData.brand || null,
+        brand: brandDoc
+          ? { _id: brandDoc._id, name: brandDoc.name }
+          : productData.brand || null,
         category: { _id: categoryDoc._id, name: categoryDoc.name },
-        subCategory: subCategoryDoc ? { _id: subCategoryDoc._id, name: subCategoryDoc.name } : productData.subCategory || null,
+        subCategory: subCategoryDoc
+          ? { _id: subCategoryDoc._id, name: subCategoryDoc.name }
+          : productData.subCategory || null,
         segment: segmentDoc ? segmentDoc.name : productData.segment || null,
         description: productData.description || "",
         aboutTheBrand: productData.aboutTheBrand || "",
@@ -3921,20 +4210,25 @@ const importProducts = async (req, res) => {
 
       const savedProduct = await newProduct.save();
       importedProducts.push(savedProduct);
-
     } catch (error) {
-      errors.push({ index: i, product: productData?.name || `Index ${i}`, message: error.message });
+      errors.push({
+        index: i,
+        product: productData?.name || `Index ${i}`,
+        message: error.message,
+      });
     }
   }
 
   return res.status(200).json({
     status: errors.length === 0,
-    message: errors.length === 0 ? "All products imported successfully." : "Some products failed to import.",
+    message:
+      errors.length === 0
+        ? "All products imported successfully."
+        : "Some products failed to import.",
     data: importedProducts,
     errors,
   });
 };
-
 
 const getProductStockDetails = async (req, res) => {
   try {
@@ -3980,30 +4274,38 @@ const getProductByCategory = async (req, res) => {
     const id = req.params.id;
     console.log(id, "id");
 
-    const franchiseId = req.user?.franchiseId?.toString() || req.query.franchiseId || null;
-const franchiseFilter = franchiseId ? {
-  franchiseInventories: {
-    $elemMatch: { franchiseId: new mongoose.Types.ObjectId(franchiseId), isEnable: true, outOfStock: false }
-  }
-} : {};
+    const franchiseId =
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
+    const franchiseFilter = franchiseId
+      ? {
+          franchiseInventories: {
+            $elemMatch: {
+              franchiseId: new mongoose.Types.ObjectId(franchiseId),
+              isEnable: true,
+              outOfStock: false,
+            },
+          },
+        }
+      : {};
 
-     const rawProducts = await Product.find({ category: id, ...franchiseFilter })
-      .populate("brand",       "name")
-      .populate("category",    "name")
+    const rawProducts = await Product.find({ category: id, ...franchiseFilter })
+      .populate("brand", "name")
+      .populate("category", "name")
       .populate("subCategory", "name")
-      .populate("createdBy",   "name email")
+      .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .lean(); // ✅ lean() needed for overlayInventory to work on plain objects
 
     if (!rawProducts || rawProducts.length === 0) {
-      return res.status(404).json({ message: "No products found for this category" });
+      return res
+        .status(404)
+        .json({ message: "No products found for this category" });
     }
 
     // ✅ overlay store inventory
     const products = overlayInventory(rawProducts, franchiseId);
 
     res.status(200).json(products);
-
   } catch (error) {
     console.error("Error fetching products by category:", error);
     res
@@ -4017,40 +4319,47 @@ const getProductBySubCategory = async (req, res) => {
   try {
     const id = req.params.id;
 
-    const franchiseId = req.user?.franchiseId?.toString()
-                     || req.query.franchiseId
-                     || null;
+    const franchiseId =
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
 
-    const franchiseFilter = franchiseId ? {
-      franchiseInventories: {
-        $elemMatch: {
-          franchiseId: new mongoose.Types.ObjectId(franchiseId),
-          isEnable:    true,
-          outOfStock:  false,
-        },
-      },
-    } : {};
+    const franchiseFilter = franchiseId
+      ? {
+          franchiseInventories: {
+            $elemMatch: {
+              franchiseId: new mongoose.Types.ObjectId(franchiseId),
+              isEnable: true,
+              outOfStock: false,
+            },
+          },
+        }
+      : {};
 
-    const rawProducts = await Product.find({ subCategory: id, ...franchiseFilter })
-      .populate("brand",       "name")
-      .populate("category",    "name")
+    const rawProducts = await Product.find({
+      subCategory: id,
+      ...franchiseFilter,
+    })
+      .populate("brand", "name")
+      .populate("category", "name")
       .populate("subCategory", "name")
-      .populate("createdBy",   "name email")
+      .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .lean(); // ✅ lean() needed for overlayInventory to work on plain objects
 
     if (!rawProducts || rawProducts.length === 0) {
-      return res.status(404).json({ message: "No products found for this SubCategory" });
+      return res
+        .status(404)
+        .json({ message: "No products found for this SubCategory" });
     }
 
     // ✅ overlay store inventory
     const products = overlayInventory(rawProducts, franchiseId);
 
     res.status(200).json(products);
-
   } catch (error) {
     console.error("Error fetching products by SubCategory:", error);
-    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
@@ -4059,30 +4368,38 @@ const getProductBySegment = async (req, res) => {
   try {
     const id = req.params.id;
 
-    const franchiseId = req.user?.franchiseId?.toString() || req.query.franchiseId || null;
-const franchiseFilter = franchiseId ? {
-  franchiseInventories: {
-    $elemMatch: { franchiseId: new mongoose.Types.ObjectId(franchiseId), isEnable: true, outOfStock: false }
-  }
-} : {};
+    const franchiseId =
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
+    const franchiseFilter = franchiseId
+      ? {
+          franchiseInventories: {
+            $elemMatch: {
+              franchiseId: new mongoose.Types.ObjectId(franchiseId),
+              isEnable: true,
+              outOfStock: false,
+            },
+          },
+        }
+      : {};
 
     const rawProducts = await Product.find({ segment: id, ...franchiseFilter })
-      .populate("brand",       "name")
-      .populate("category",    "name")
+      .populate("brand", "name")
+      .populate("category", "name")
       .populate("subCategory", "name")
-      .populate("createdBy",   "name email")
+      .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .lean(); // ✅ lean() needed for overlayInventory to work on plain objects
 
     if (!rawProducts || rawProducts.length === 0) {
-      return res.status(404).json({ message: "No products found for this segment" });
+      return res
+        .status(404)
+        .json({ message: "No products found for this segment" });
     }
 
     // ✅ overlay store inventory
     const products = overlayInventory(rawProducts, franchiseId);
 
     res.status(200).json(products);
-
   } catch (error) {
     console.error("Error fetching products by Segment:", error);
     res.status(500).json({
@@ -4134,12 +4451,19 @@ const getProductsByBrandId = async (req, res) => {
       return res.status(400).json({ message: "Brand ID is required" });
     }
 
-    const franchiseId = req.user?.franchiseId?.toString() || req.query.franchiseId || null;
-const franchiseFilter = franchiseId ? {
-  franchiseInventories: {
-    $elemMatch: { franchiseId: new mongoose.Types.ObjectId(franchiseId), isEnable: true, outOfStock: false }
-  }
-} : {};
+    const franchiseId =
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
+    const franchiseFilter = franchiseId
+      ? {
+          franchiseInventories: {
+            $elemMatch: {
+              franchiseId: new mongoose.Types.ObjectId(franchiseId),
+              isEnable: true,
+              outOfStock: false,
+            },
+          },
+        }
+      : {};
 
     // Find products that match the brand ID
     const products = await Product.find({ brand: brandId, ...franchiseFilter })
@@ -4151,7 +4475,6 @@ const franchiseFilter = franchiseId ? {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 const getStockNotificationSubscribers = asyncHandler(async (req, res) => {
   const { productId } = req.params;
@@ -4184,7 +4507,8 @@ const getStockNotificationSubscribers = asyncHandler(async (req, res) => {
       Array.isArray(product.flatVariants)
     ) {
       variantDetails =
-        product.flatVariants.find((v) => v._id.toString() === variantId) || null;
+        product.flatVariants.find((v) => v._id.toString() === variantId) ||
+        null;
     }
 
     if (
@@ -4193,7 +4517,7 @@ const getStockNotificationSubscribers = asyncHandler(async (req, res) => {
     ) {
       for (const color of product.colorVariants) {
         const matchedSize = (color.sizes || []).find(
-          (size) => size._id.toString() === variantId
+          (size) => size._id.toString() === variantId,
         );
 
         if (matchedSize) {
@@ -4221,7 +4545,8 @@ const getStockNotificationSubscribers = asyncHandler(async (req, res) => {
     variantId: variantId || null,
   };
 
-  const subscriptions = await stockNotificationSchema.find(filter)
+  const subscriptions = await stockNotificationSchema
+    .find(filter)
     .populate("userId", "username email contactNo")
     .sort({ createdAt: -1 })
     .lean();
@@ -4249,7 +4574,7 @@ const getStockNotificationSubscribers = asyncHandler(async (req, res) => {
 
   const paginatedSubscriptions = filteredSubscriptions.slice(
     skip,
-    skip + limitNumber
+    skip + limitNumber,
   );
 
   const formattedSubscribers = paginatedSubscriptions.map((sub) => ({
@@ -4282,7 +4607,6 @@ const getStockNotificationSubscribers = asyncHandler(async (req, res) => {
   });
 });
 
-
 const subscribeStockNotification = asyncHandler(async (req, res) => {
   const { productId, variantId } = req.body;
 
@@ -4296,7 +4620,9 @@ const subscribeStockNotification = asyncHandler(async (req, res) => {
   // ── Validate product exists ───────────────────────────────────────────────
   const product = await Product.findById(productId);
   if (!product) {
-    return res.status(404).json({ success: false, message: "Product not found" });
+    return res
+      .status(404)
+      .json({ success: false, message: "Product not found" });
   }
 
   // ── Validate variantId belongs to this product ────────────────────────────
@@ -4305,11 +4631,11 @@ const subscribeStockNotification = asyncHandler(async (req, res) => {
 
     if (product.productType === "WeightPack") {
       variantExists = product.flatVariants.some(
-        (v) => v._id.toString() === variantId.toString()
+        (v) => v._id.toString() === variantId.toString(),
       );
     } else if (product.productType === "ColorSize") {
       variantExists = product.colorVariants.some((cv) =>
-        cv.sizes.some((s) => s._id.toString() === variantId.toString())
+        cv.sizes.some((s) => s._id.toString() === variantId.toString()),
       );
     }
 
@@ -4323,15 +4649,16 @@ const subscribeStockNotification = asyncHandler(async (req, res) => {
 
   // ── Check if product/variant is actually out of stock ─────────────────────
   // No point subscribing if it's already in stock
-  const franchiseId = req.user?.franchiseId?.toString()
-                   || req.query.franchiseId
-                   || req.body.franchiseId
-                   || null;
+  const franchiseId =
+    req.user?.franchiseId?.toString() ||
+    req.query.franchiseId ||
+    req.body.franchiseId ||
+    null;
 
   if (franchiseId) {
     // ✅ Check franchise inventory stock
     const inv = product.franchiseInventories?.find(
-      (fi) => fi.franchiseId.toString() === franchiseId
+      (fi) => fi.franchiseId.toString() === franchiseId,
     );
 
     if (inv && !inv.outOfStock) {
@@ -4340,15 +4667,18 @@ const subscribeStockNotification = asyncHandler(async (req, res) => {
         let variantInStock = false;
         if (product.productType === "WeightPack") {
           const v = inv.flatVariants?.find(
-            (fv) => fv._id.toString() === variantId.toString()
+            (fv) => fv._id.toString() === variantId.toString(),
           );
           variantInStock = v ? (v.countInStock || 0) > 0 : false;
         } else if (product.productType === "ColorSize") {
-          for (const cv of (inv.colorVariants || [])) {
+          for (const cv of inv.colorVariants || []) {
             const s = cv.sizes?.find(
-              (sz) => sz._id.toString() === variantId.toString()
+              (sz) => sz._id.toString() === variantId.toString(),
             );
-            if (s) { variantInStock = (s.countInStock || 0) > 0; break; }
+            if (s) {
+              variantInStock = (s.countInStock || 0) > 0;
+              break;
+            }
           }
         }
         if (variantInStock) {
@@ -4378,35 +4708,35 @@ const subscribeStockNotification = asyncHandler(async (req, res) => {
 
   // ── Upsert subscription ───────────────────────────────────────────────────
   const existingSubscription = await stockNotificationSchema.findOne({
-    userId:    req.user._id,
+    userId: req.user._id,
     productId,
     variantId: variantId || null,
   });
 
   const subscription = await stockNotificationSchema.findOneAndUpdate(
     {
-      userId:    req.user._id,
+      userId: req.user._id,
       productId,
       variantId: variantId || null,
     },
     {
       $set: {
-        notified:    false,
+        notified: false,
         franchiseId: franchiseId || null, // ✅ track which store this is for
       },
     },
     {
-      upsert:              true,
-      new:                 true,
+      upsert: true,
+      new: true,
       setDefaultsOnInsert: true,
-    }
+    },
   );
 
   return res.status(200).json({
-    success:           true,
-    subscribed:        true,
+    success: true,
+    subscribed: true,
     alreadySubscribed: !!existingSubscription,
-    message:           existingSubscription
+    message: existingSubscription
       ? "Already subscribed for stock notifications"
       : "Subscribed! We'll notify you when this is back in stock.",
     subscription,
@@ -4429,11 +4759,11 @@ const bulkSyncAllProductsToStore = asyncHandler(async (req, res) => {
 
   const bulkOps = [];
   let newlyLinked = 0;
-  let updated     = 0;
+  let updated = 0;
 
   for (const product of products) {
     const inv = product.franchiseInventories?.find(
-      (fi) => fi.franchiseId.toString() === franchiseId.toString()
+      (fi) => fi.franchiseId.toString() === franchiseId.toString(),
     );
 
     if (!inv) {
@@ -4446,56 +4776,62 @@ const bulkSyncAllProductsToStore = asyncHandler(async (req, res) => {
             $push: {
               franchiseInventories: {
                 franchiseId,
-                mrp:               product.mrp,
-                offerPrice:        product.offerPrice,
-                countInStock:      product.countInStock,
-                minOrderQuantity:  product.minOrderQuantity,
-                maxOrderQuantity:  product.maxOrderQuantity,
+                mrp: product.mrp,
+                offerPrice: product.offerPrice,
+                countInStock: product.countInStock,
+                minOrderQuantity: product.minOrderQuantity,
+                maxOrderQuantity: product.maxOrderQuantity,
                 lowStockThreshold: product.lowStockThreshold || 10,
-                outOfStock:        (product.countInStock || 0) === 0,
-                isEnable:          false,
+                outOfStock: (product.countInStock || 0) === 0,
+                isEnable: false,
                 // ✅ deep clone — no shared references
-                flatVariants: product.productType === "WeightPack"
-                  ? JSON.parse(JSON.stringify(product.flatVariants || []))
-                  : [],
-                colorVariants: product.productType === "ColorSize"
-                  ? JSON.parse(JSON.stringify(product.colorVariants || []))
-                  : [],
+                flatVariants:
+                  product.productType === "WeightPack"
+                    ? JSON.parse(JSON.stringify(product.flatVariants || []))
+                    : [],
+                colorVariants:
+                  product.productType === "ColorSize"
+                    ? JSON.parse(JSON.stringify(product.colorVariants || []))
+                    : [],
               },
             },
           },
         },
       });
-
     } else {
       // ── Already linked → update values from master ──────────────────────
       updated++;
 
       const updateFields = {
-        "franchiseInventories.$.mrp":               product.mrp,
-        "franchiseInventories.$.offerPrice":        product.offerPrice,
-        "franchiseInventories.$.countInStock":      product.countInStock,
-        "franchiseInventories.$.lowStockThreshold": product.lowStockThreshold || 10,
-        "franchiseInventories.$.outOfStock":        (product.countInStock || 0) === 0,
-        "franchiseInventories.$.minOrderQuantity":  product.minOrderQuantity,
-        "franchiseInventories.$.maxOrderQuantity":  product.maxOrderQuantity,
+        "franchiseInventories.$.mrp": product.mrp,
+        "franchiseInventories.$.offerPrice": product.offerPrice,
+        "franchiseInventories.$.countInStock": product.countInStock,
+        "franchiseInventories.$.lowStockThreshold":
+          product.lowStockThreshold || 10,
+        "franchiseInventories.$.outOfStock": (product.countInStock || 0) === 0,
+        "franchiseInventories.$.minOrderQuantity": product.minOrderQuantity,
+        "franchiseInventories.$.maxOrderQuantity": product.maxOrderQuantity,
       };
 
       // ✅ deep clone variants
       if (product.productType === "WeightPack") {
-        updateFields["franchiseInventories.$.flatVariants"] =
-          JSON.parse(JSON.stringify(product.flatVariants || []));
+        updateFields["franchiseInventories.$.flatVariants"] = JSON.parse(
+          JSON.stringify(product.flatVariants || []),
+        );
       }
       if (product.productType === "ColorSize") {
-        updateFields["franchiseInventories.$.colorVariants"] =
-          JSON.parse(JSON.stringify(product.colorVariants || []));
+        updateFields["franchiseInventories.$.colorVariants"] = JSON.parse(
+          JSON.stringify(product.colorVariants || []),
+        );
       }
 
       bulkOps.push({
         updateOne: {
           filter: {
             _id: product._id,
-            "franchiseInventories.franchiseId": new mongoose.Types.ObjectId(franchiseId),
+            "franchiseInventories.franchiseId": new mongoose.Types.ObjectId(
+              franchiseId,
+            ),
           },
           update: { $set: updateFields },
         },
@@ -4510,7 +4846,7 @@ const bulkSyncAllProductsToStore = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message:  `Bulk sync complete. ${newlyLinked} newly linked, ${updated} updated.`,
+    message: `Bulk sync complete. ${newlyLinked} newly linked, ${updated} updated.`,
     newlyLinked,
     updated,
     total: products.length,
@@ -4524,7 +4860,7 @@ const bulkSyncAllProductsToStore = asyncHandler(async (req, res) => {
 const bulkSyncSelectedProducts = asyncHandler(async (req, res) => {
   const { productIds, franchiseIds } = req.body;
 
-  if (!Array.isArray(productIds)   || !productIds.length)
+  if (!Array.isArray(productIds) || !productIds.length)
     return res.status(400).json({ error: "productIds[] is required" });
   if (!Array.isArray(franchiseIds) || !franchiseIds.length)
     return res.status(400).json({ error: "franchiseIds[] is required" });
@@ -4533,15 +4869,15 @@ const bulkSyncSelectedProducts = asyncHandler(async (req, res) => {
     _id: { $in: productIds },
   }).lean();
 
-  const bulkOps    = [];
-  let newlyLinked  = 0;
-  let updated      = 0;
-  let skipped      = 0;
+  const bulkOps = [];
+  let newlyLinked = 0;
+  let updated = 0;
+  let skipped = 0;
 
   for (const product of products) {
     for (const fId of franchiseIds) {
       const inv = product.franchiseInventories?.find(
-        (fi) => fi.franchiseId.toString() === fId.toString()
+        (fi) => fi.franchiseId.toString() === fId.toString(),
       );
 
       if (!inv) {
@@ -4552,53 +4888,60 @@ const bulkSyncSelectedProducts = asyncHandler(async (req, res) => {
             update: {
               $push: {
                 franchiseInventories: {
-                  franchiseId:       fId,
-                  mrp:               product.mrp,
-                  offerPrice:        product.offerPrice,
-                  countInStock:      product.countInStock,
-                  minOrderQuantity:  product.minOrderQuantity,
-                  maxOrderQuantity:  product.maxOrderQuantity,
+                  franchiseId: fId,
+                  mrp: product.mrp,
+                  offerPrice: product.offerPrice,
+                  countInStock: product.countInStock,
+                  minOrderQuantity: product.minOrderQuantity,
+                  maxOrderQuantity: product.maxOrderQuantity,
                   lowStockThreshold: product.lowStockThreshold || 10,
-                  outOfStock:        (product.countInStock || 0) === 0,
-                  isEnable:          false,
-                  flatVariants: product.productType === "WeightPack"
-                    ? JSON.parse(JSON.stringify(product.flatVariants || []))
-                    : [],
-                  colorVariants: product.productType === "ColorSize"
-                    ? JSON.parse(JSON.stringify(product.colorVariants || []))
-                    : [],
+                  outOfStock: (product.countInStock || 0) === 0,
+                  isEnable: false,
+                  flatVariants:
+                    product.productType === "WeightPack"
+                      ? JSON.parse(JSON.stringify(product.flatVariants || []))
+                      : [],
+                  colorVariants:
+                    product.productType === "ColorSize"
+                      ? JSON.parse(JSON.stringify(product.colorVariants || []))
+                      : [],
                 },
               },
             },
           },
         });
-
       } else {
         updated++;
         const updateFields = {
-          "franchiseInventories.$.mrp":               product.mrp,
-          "franchiseInventories.$.offerPrice":        product.offerPrice,
-          "franchiseInventories.$.countInStock":      product.countInStock,
-          "franchiseInventories.$.lowStockThreshold": product.lowStockThreshold || 10,
-          "franchiseInventories.$.outOfStock":        (product.countInStock || 0) === 0,
-          "franchiseInventories.$.minOrderQuantity":  product.minOrderQuantity,
-          "franchiseInventories.$.maxOrderQuantity":  product.maxOrderQuantity,
+          "franchiseInventories.$.mrp": product.mrp,
+          "franchiseInventories.$.offerPrice": product.offerPrice,
+          "franchiseInventories.$.countInStock": product.countInStock,
+          "franchiseInventories.$.lowStockThreshold":
+            product.lowStockThreshold || 10,
+          "franchiseInventories.$.outOfStock":
+            (product.countInStock || 0) === 0,
+          "franchiseInventories.$.minOrderQuantity": product.minOrderQuantity,
+          "franchiseInventories.$.maxOrderQuantity": product.maxOrderQuantity,
         };
 
         if (product.productType === "WeightPack") {
-          updateFields["franchiseInventories.$.flatVariants"] =
-            JSON.parse(JSON.stringify(product.flatVariants || []));
+          updateFields["franchiseInventories.$.flatVariants"] = JSON.parse(
+            JSON.stringify(product.flatVariants || []),
+          );
         }
         if (product.productType === "ColorSize") {
-          updateFields["franchiseInventories.$.colorVariants"] =
-            JSON.parse(JSON.stringify(product.colorVariants || []));
+          updateFields["franchiseInventories.$.colorVariants"] = JSON.parse(
+            JSON.stringify(product.colorVariants || []),
+          );
         }
 
         bulkOps.push({
           updateOne: {
             filter: {
               _id: product._id,
-              "franchiseInventories.franchiseId": new mongoose.Types.ObjectId(fId),
+              "franchiseInventories.franchiseId": new mongoose.Types.ObjectId(
+                fId,
+              ),
             },
             update: { $set: updateFields },
           },
@@ -4618,7 +4961,6 @@ const bulkSyncSelectedProducts = asyncHandler(async (req, res) => {
   });
 });
 
-
 // Scan product by barcode
 
 const scanProductByBarcode = asyncHandler(async (req, res) => {
@@ -4633,9 +4975,7 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     }
 
     const franchiseId =
-      req.user?.franchiseId?.toString() ||
-      req.query.franchiseId ||
-      null;
+      req.user?.franchiseId?.toString() || req.query.franchiseId || null;
 
     // Fetch complete product
     const product = await Product.findOne({
@@ -4666,7 +5006,7 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     // Overlay franchise inventory
     if (franchiseId && product.franchiseInventories?.length) {
       const inventory = product.franchiseInventories.find(
-        (f) => f.franchiseId.toString() === franchiseId
+        (f) => f.franchiseId.toString() === franchiseId,
       );
 
       if (inventory) {
@@ -4692,52 +5032,101 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     // Product barcode
     if (product.barcode === barcode) {
       scannedVariant = {
-        type: "Single",
-        barcode,
+        productId: product._id,
+        productType: "Single",
+
+        name: product.name,
+        image: product.images?.[0] || "",
+
+        barcode: product.barcode,
         sku: product.sku,
+
         mrp: response.mrp,
         offerPrice: response.offerPrice,
+
         countInStock: response.countInStock,
+
+        minOrderQuantity: response.minOrderQuantity,
+        maxOrderQuantity: response.maxOrderQuantity,
+
+        tax: product.tax || 0,
       };
     }
 
     // WeightPack barcode
     if (!scannedVariant) {
-      const variant = response.flatVariants?.find(
-        (v) => v.barcode === barcode
-      );
+  const variant = response.flatVariants?.find(
+    (v) => v.barcode === barcode
+  );
 
-      if (variant) {
-        scannedVariant = {
-          type: "WeightPack",
-          ...variant,
-        };
-      }
-    }
+  if (variant) {
+    scannedVariant = {
+      productId: product._id,
+      productType: "WeightPack",
+
+      name: product.name,
+      image: product.images?.[0] || "",
+
+      size: variant.size,
+
+      barcode: variant.barcode,
+      sku: variant.sku,
+
+      mrp: variant.mrp,
+      offerPrice: variant.offerPrice,
+
+      countInStock: variant.countInStock,
+
+      minOrderQuantity: variant.minOrderQuantity,
+      maxOrderQuantity: variant.maxOrderQuantity,
+
+      tax: product.tax || 0,
+    };
+  }
+}
 
     // ColorSize barcode
     if (!scannedVariant) {
-      for (const color of response.colorVariants || []) {
-        const size = color.sizes.find(
-          (s) => s.barcode === barcode
-        );
+  for (const color of response.colorVariants || []) {
+    const size = color.sizes.find(
+      (s) => s.barcode === barcode
+    );
 
-        if (size) {
-          scannedVariant = {
-            type: "ColorSize",
-            color: color.name,
-            colorCode: color.code,
-            ...size,
-          };
-          break;
-        }
-      }
+    if (size) {
+      scannedVariant = {
+        productId: product._id,
+        productType: "ColorSize",
+
+        name: product.name,
+        image: product.images?.[0] || "",
+
+        color: color.name,
+        colorCode: color.code,
+
+        size: size.size,
+
+        barcode: size.barcode,
+        sku: size.sku,
+
+        mrp: size.mrp,
+        offerPrice: size.offerPrice,
+
+        countInStock: size.countInStock,
+
+        minOrderQuantity: size.minOrderQuantity,
+        maxOrderQuantity: size.maxOrderQuantity,
+
+        tax: product.tax || 0,
+      };
+      break;
     }
+  }
+}
 
     return res.json({
       success: true,
       message: "Barcode scanned successfully.",
-      product: response,
+      // product: response, //we want only scanned variant details, not the whole product
       scannedVariant,
     });
   } catch (error) {
