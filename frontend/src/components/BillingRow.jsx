@@ -1,152 +1,146 @@
 import {
+  FaTrash,
   FaPlus,
   FaMinus,
-  FaTrash,
 } from "react-icons/fa";
 
-function BillingRow({ item, cart, setCart }) {
-  const increase = () => {
-    setCart(
-      cart.map((p) =>
-        p.barcode === item.barcode
-          ? {
-              ...p,
-              quantity: p.quantity + 1,
-            }
-          : p
-      )
-    );
-  };
-
-  const decrease = () => {
-    if (item.quantity === 1) {
-      remove();
-      return;
-    }
-
-    setCart(
-      cart.map((p) =>
-        p.barcode === item.barcode
-          ? {
-              ...p,
-              quantity: p.quantity - 1,
-            }
-          : p
-      )
-    );
-  };
-
-  const remove = () => {
-    setCart(
-      cart.filter(
-        (p) => p.barcode !== item.barcode
-      )
-    );
-  };
+function BillingRow({
+  item,
+  onIncrease,
+  onDecrease,
+  onRemove,
+}) {
+  const total = item.offerPrice * item.quantity;
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-center border-b px-3 py-3 hover:bg-gray-50">
+    <tr className="border-b hover:bg-slate-50 transition">
 
       {/* Product */}
 
-      <div className="col-span-4 flex items-center gap-3">
+      <td className="px-4 py-3">
 
-        <img
-          src={item.image}
-          alt={item.name}
-          className="w-12 h-12 rounded border object-cover"
-        />
+        <div className="flex items-center gap-3">
 
-        <div>
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-14 h-14 rounded-lg border object-cover"
+          />
 
-          <h3 className="font-semibold">
+          <div>
 
-            {item.name}
+            <h3 className="font-semibold text-gray-800">
+              {item.name}
+            </h3>
 
-          </h3>
+            <p className="text-xs text-gray-500">
+              {item.barcode}
+            </p>
 
-          <p className="text-xs text-gray-500">
+            <div className="flex gap-2 text-xs text-gray-500 mt-1">
 
-            {item.color} {item.size}
+              {item.color && (
+                <span>{item.color}</span>
+              )}
 
-          </p>
+              {item.size && (
+                <span>| {item.size}</span>
+              )}
+
+            </div>
+
+          </div>
 
         </div>
 
-      </div>
+      </td>
 
       {/* MRP */}
 
-      <div className="text-center">
+      <td className="text-center font-medium">
 
         ₹{item.mrp}
 
-      </div>
+      </td>
 
-      {/* Price */}
+      {/* Selling Price */}
 
-      <div className="text-center text-green-600 font-semibold">
+      <td className="text-center">
 
-        ₹{item.offerPrice}
+        <input
+          value={item.offerPrice}
+          readOnly
+          className="w-20 border rounded-lg text-center py-1"
+        />
 
-      </div>
+      </td>
 
-      {/* Qty */}
+      {/* Quantity */}
 
-      <div className="flex justify-center items-center gap-2">
+      <td>
 
-        <button
-          onClick={decrease}
-          className="bg-gray-200 rounded p-1"
-        >
-          <FaMinus size={10} />
-        </button>
+        <div className="flex justify-center items-center gap-2">
 
-        <span>
+          <button
+            onClick={() => onDecrease(item.barcode)}
+            className="bg-red-100 hover:bg-red-200 w-8 h-8 rounded-full"
+          >
+            <FaMinus
+              className="mx-auto"
+              size={12}
+            />
+          </button>
 
-          {item.quantity}
+          <span className="font-bold w-8 text-center">
 
-        </span>
+            {item.quantity}
 
-        <button
-          onClick={increase}
-          className="bg-blue-600 text-white rounded p-1"
-        >
-          <FaPlus size={10} />
-        </button>
+          </span>
 
-      </div>
+          <button
+            onClick={() => onIncrease(item.barcode)}
+            className="bg-green-100 hover:bg-green-200 w-8 h-8 rounded-full"
+          >
+            <FaPlus
+              className="mx-auto"
+              size={12}
+            />
+          </button>
+
+        </div>
+
+      </td>
 
       {/* Discount */}
 
-      <div className="text-center">
+      <td className="text-center">
 
         ₹0
 
-      </div>
+      </td>
 
       {/* Total */}
 
-      <div className="text-center font-bold">
+      <td className="text-center font-bold text-blue-700">
 
-        ₹{item.offerPrice * item.quantity}
+        ₹{total}
 
-      </div>
+      </td>
 
-      {/* Action */}
+      {/* Delete */}
 
-      <div className="col-span-2 flex justify-center">
+      <td className="text-center">
 
         <button
-          onClick={remove}
-          className="bg-red-500 hover:bg-red-600 text-white rounded-lg p-2"
+          onClick={() => onRemove(item.barcode)}
+          className="bg-red-500 hover:bg-red-600 text-white w-9 h-9 rounded-lg"
         >
-          <FaTrash />
+          <FaTrash className="mx-auto" />
         </button>
 
-      </div>
+      </td>
 
-    </div>
+    </tr>
   );
 }
 

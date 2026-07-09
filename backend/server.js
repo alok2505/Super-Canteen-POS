@@ -11,7 +11,6 @@ dotenv.config();
 
 const app = express();
 
-app.use(formidable());
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -20,8 +19,11 @@ app.use(morgan("dev"));
 
 // Routes
 const productRoutes = require("./routes/productRoutes");
+const billingRoutes = require("./routes/billingRoutes");
 
-app.use("/api/products", productRoutes);
+
+app.use("/api/products", formidable(),productRoutes);
+app.use("/api/billing", billingRoutes);
 
 // Default Route
 app.get("/", (req, res) => {

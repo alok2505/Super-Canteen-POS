@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FaBarcode, FaSearch } from "react-icons/fa";
-import api from "../services/productApi";
+import api from "../services/ProductApi";
 
 function SearchBar({ onProductScanned }) {
   const inputRef = useRef(null);

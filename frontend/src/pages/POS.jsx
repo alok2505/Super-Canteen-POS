@@ -40,6 +40,41 @@ function POS() {
     });
 };
 
+
+const increaseQuantity = (barcode) => {
+  setCart((prev) =>
+    prev.map((item) =>
+      item.barcode === barcode
+        ? {
+            ...item,
+            quantity: item.quantity + 1,
+          }
+        : item
+    )
+  );
+};
+
+const decreaseQuantity = (barcode) => {
+  setCart((prev) =>
+    prev
+      .map((item) =>
+        item.barcode === barcode
+          ? {
+              ...item,
+              quantity: item.quantity - 1,
+            }
+          : item
+      )
+      .filter((item) => item.quantity > 0)
+  );
+};
+
+const removeProduct = (barcode) => {
+  setCart((prev) =>
+    prev.filter((item) => item.barcode !== barcode)
+  );
+};
+
   return (
     <div className="h-screen bg-slate-100 flex flex-col">
 
@@ -56,9 +91,11 @@ function POS() {
 />
 
           <BillingTable
-            cart={cart}
-            setCart={setCart}
-          />
+  cart={cart}
+  onIncrease={increaseQuantity}
+  onDecrease={decreaseQuantity}
+  onRemove={removeProduct}
+/>
 
         </div>
 

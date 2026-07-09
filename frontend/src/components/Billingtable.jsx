@@ -1,91 +1,52 @@
 import BillingRow from "./BillingRow";
 
-function BillingTable({ cart, setCart }) {
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-  const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-  const grandTotal = cart.reduce(
-    (sum, item) => sum + item.offerPrice * item.quantity,
-    0
-  );
-
+function BillingTable({
+  cart,
+  onIncrease,
+  onDecrease,
+  onRemove,
+}) {
   return (
-    <div className="bg-white rounded-xl shadow h-full flex flex-col">
+    <div className="bg-white rounded-xl shadow overflow-hidden">
 
-      {/* Header */}
-      <div className="bg-blue-600 text-white grid grid-cols-12 gap-2 p-3 font-semibold rounded-t-xl">
+      <table className="w-full">
 
-        <div className="col-span-4">Product</div>
+        <thead className="bg-blue-600 text-white">
+          <tr>
+            <th className="p-3 text-left">Product</th>
+            <th className="p-3">MRP</th>
+            <th className="p-3">Price</th>
+            <th className="p-3">Qty</th>
+            <th className="p-3">Discount</th>
+            <th className="p-3">Total</th>
+            <th className="p-3">Action</th>
+          </tr>
+        </thead>
 
-        <div className="text-center">MRP</div>
+        <tbody>
+          {cart.length === 0 ? (
+            <tr>
+              <td
+                colSpan={7}
+                className="text-center py-10 text-gray-500"
+              >
+                Scan a barcode to add products
+              </td>
+            </tr>
+          ) : (
+            cart.map((item) => (
+              <BillingRow
+                key={item.barcode}
+                item={item}
+                onIncrease={onIncrease}
+                onDecrease={onDecrease}
+                onRemove={onRemove}
+              />
+            ))
+          )}
+        </tbody>
 
-        <div className="text-center">Price</div>
-
-        <div className="text-center">Qty</div>
-
-        <div className="text-center">Discount</div>
-
-        <div className="text-center">Total</div>
-
-        <div className="text-center col-span-2">
-          Action
-        </div>
-
-      </div>
-
-      {/* Rows */}
-
-      <div className="flex-1 overflow-y-auto">
-
-        {cart.length === 0 ? (
-          <div className="flex items-center justify-center h-80 text-gray-400 text-xl">
-
-            Scan barcode to add products
-
-          </div>
-        ) : (
-          cart.map((item) => (
-            <BillingRow
-              key={item.barcode}
-              item={item}
-              cart={cart}
-              setCart={setCart}
-            />
-          ))
-        )}
-
-      </div>
-
-      {/* Footer */}
-
-      <div className="border-t bg-gray-50 p-4 rounded-b-xl">
-
-        <div className="flex justify-between text-lg">
-
-          <span>
-
-            Total Items :
-            <b className="ml-2">{totalItems}</b>
-
-          </span>
-
-          <span>
-
-            Total Qty :
-            <b className="ml-2">{totalQty}</b>
-
-          </span>
-
-          <span className="text-2xl font-bold text-blue-600">
-
-            ₹ {grandTotal}
-
-          </span>
-
-        </div>
-
-      </div>
+      </table>
 
     </div>
   );
