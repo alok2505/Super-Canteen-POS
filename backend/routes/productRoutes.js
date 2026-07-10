@@ -11,7 +11,6 @@ const {
   fetchAllProducts,
   fetchAllProductsByAdmin,
   productSearch,
-  searchProductForPos,
   scanProductByBarcode,
 } = require("../controllers/productController");
 
@@ -50,9 +49,6 @@ router.get("/search", productSearch);
 
 // Scan barcode (POS)
 router.get("/scan/:barcode", scanProductByBarcode);
-
-// Search by barcode, name, or ID (POS)
-router.get("/search-pos/:query", searchProductForPos);
 
 // ==============================
 // Product Details
