@@ -2,7 +2,12 @@ const asyncHandler = require("../middlewares/asyncHandler");
 const Product = require("../models/productModel");
 
 const previewBill = asyncHandler(async (req, res) => {
-  const { items, discount = 0 } = req.body;  
+  const {
+    items,
+    discount = 0,
+    couponDiscount = 0,
+    gstPercentage = 0,
+  } = req.body;
 
   if (!items || items.length === 0) {
     return res.status(400).json({
@@ -14,6 +19,10 @@ const previewBill = asyncHandler(async (req, res) => {
   let billItems = [];
 
   let grossAmount = 0;
+  let sellingAmount = 0;
+  let totalSavings = 0;
+  let totalItems = 0;
+  let totalQuantity = 0;
 
   for (const cartItem of items) {
     const { barcode, quantity } = cartItem;
@@ -33,39 +42,66 @@ const previewBill = asyncHandler(async (req, res) => {
       });
     }
 
-    let price = 0;
     let mrp = 0;
+    let price = 0;
     let stock = 0;
-    let name = product.name;
 
-    // ---------- Single Product ----------
+    let size = null;
+    let color = null;
+
+    let sku = "";
+    let image = product.images?.[0] || "";
+
+    // -----------------------------
+    // Single Product
+    // -----------------------------
+
     if (product.barcode === barcode) {
-      price = product.offerPrice;
       mrp = product.mrp;
+      price = product.offerPrice;
       stock = product.countInStock;
+
+      sku = product.sku;
+      size = product.size;
     }
 
-    // ---------- WeightPack ----------
+    // -----------------------------
+    // Weight Pack
+    // -----------------------------
+
     if (price === 0) {
       for (const variant of product.flatVariants || []) {
         if (variant.barcode === barcode) {
-          price = variant.offerPrice;
           mrp = variant.mrp;
+          price = variant.offerPrice;
           stock = variant.countInStock;
+
+          sku = variant.sku;
+          size = variant.size;
+
           break;
         }
       }
     }
 
-    // ---------- ColorSize ----------
+    // -----------------------------
+    // Color Size
+    // -----------------------------
+
     if (price === 0) {
-      for (const color of product.colorVariants || []) {
-        for (const size of color.sizes) {
-          if (size.barcode === barcode) {
-            price = size.offerPrice;
-            mrp = size.mrp;
-            stock = size.countInStock;
-            break;
+      outer:
+      for (const c of product.colorVariants || []) {
+        for (const s of c.sizes) {
+          if (s.barcode === barcode) {
+            mrp = s.mrp;
+            price = s.offerPrice;
+            stock = s.countInStock;
+
+            sku = s.sku;
+            size = s.size;
+            color = c.name;
+
+            break outer;
           }
         }
       }
@@ -74,46 +110,99 @@ const previewBill = asyncHandler(async (req, res) => {
     if (quantity > stock) {
       return res.status(400).json({
         success: false,
-        message: `${name} has only ${stock} items in stock.`,
+        message: `${product.name} has only ${stock} item(s) left in stock.`,
       });
     }
 
-    const total = price * quantity;
+    const mrpTotal = mrp * quantity;
 
-    grossAmount += total;
+    const sellingTotal = price * quantity;
+
+    const saving = mrpTotal - sellingTotal;
+
+    grossAmount += mrpTotal;
+
+    sellingAmount += sellingTotal;
+
+    totalSavings += saving;
+
+    totalItems++;
+
+    totalQuantity += quantity;
 
     billItems.push({
       productId: product._id,
-      name,
+
+      name: product.name,
+
+      image,
+
       barcode,
+
+      sku,
+
+      color,
+
+      size,
+
       quantity,
+
       mrp,
-      price,
-      total,
+
+      sellingPrice: price,
+
+      mrpTotal,
+
+      sellingTotal,
+
+      saving,
+
+      stock,
     });
   }
 
-  const gst = 0;
+    // ==========================================
+  // Bill Calculations
+  // ==========================================
 
-  const netAmount = grossAmount - discount + gst;
+  const billDiscount = Number(discount);
+  const coupon = Number(couponDiscount);
 
-  return res.json({
-    success: true,
+  // GST on selling amount after discounts
+  const taxableAmount =
+    sellingAmount - billDiscount - coupon;
 
-    bill: {
-      items: billItems,
+  const gst =
+    (taxableAmount * Number(gstPercentage)) / 100;
 
-      grossAmount,
+  // Amount before round off
+  const amountBeforeRound =
+    taxableAmount + gst;
 
-      discount,
+  // Round to nearest rupee
+  const roundedAmount = Math.round(amountBeforeRound);
 
-      gst,
+  const roundOff =
+    roundedAmount - amountBeforeRound;
 
-      netAmount,
-    },
-  });
+  const netAmount = roundedAmount;
+
+ return res.json({
+  success: true,
+  bill: {
+    items: billItems,
+    grossAmount,
+    sellingAmount,
+    savings: totalSavings,
+    discount: billDiscount,
+    couponDiscount: coupon,
+    gst,
+    netAmount,
+    totalItems,
+    totalQuantity,
+  }
 });
-
+});
 module.exports = {
   previewBill,
 };

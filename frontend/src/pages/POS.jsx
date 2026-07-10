@@ -1,12 +1,41 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 
 import Navbar from "../components/Navbar";
-import SearchBar from "../components/SearchBar";
+import SearchBar from "../components/Searchbar";
 import BillingTable from "../components/BillingTable";
 import BillSummary from "../components/BillSummary";
+import { previewBill } from "../services/ProductApi";
 
 function POS() {
   const [cart, setCart] = useState([]);
+  const [bill, setBill] = useState(null);
+
+
+  useEffect(() => {
+    if (cart.length === 0) {
+        setBill(null);
+        return;
+    }
+
+    calculateBill();
+}, [cart]);
+
+const calculateBill = async () => {
+    try {
+
+        const items = cart.map((item) => ({
+            barcode: item.barcode,
+            quantity: item.quantity,
+        }));
+
+        const response = await previewBill(items);
+
+        setBill(response.data.bill);
+
+    } catch (error) {
+        console.log(error);
+    }
+};
 
   const handleProductScanned = (product) => {
 
@@ -104,7 +133,7 @@ const removeProduct = (barcode) => {
         <div className="w-[30%] p-4">
 
           <BillSummary
-            cart={cart}
+            bill={bill}
           />
 
         </div>

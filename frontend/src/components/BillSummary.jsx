@@ -1,113 +1,69 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   FaMoneyBillWave,
   FaCreditCard,
   FaMobileAlt,
 } from "react-icons/fa";
 
-function BillSummary({ cart }) {
+function BillSummary({ bill }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerPaid, setCustomerPaid] = useState("");
 
-  // ===========================
-  // Calculations
-  // ===========================
+  // Values from backend
+  const grossAmount = bill?.grossAmount || 0;
+  const discount = bill?.discount || 0;
+  const gst = bill?.gst || 0;
+  const netAmount = bill?.netAmount || 0;
 
-  const grossAmount = useMemo(() => {
-    return cart.reduce(
-      (sum, item) => sum + item.mrp * item.quantity,
-      0
-    );
-  }, [cart]);
-
-  const sellingAmount = useMemo(() => {
-    return cart.reduce(
-      (sum, item) => sum + item.offerPrice * item.quantity,
-      0
-    );
-  }, [cart]);
-
-  const savings = grossAmount - sellingAmount;
-
-  const gst = 0; // Change later if needed
-
-  const netAmount = sellingAmount + gst;
-
+  // Payment calculation
   const paid = Number(customerPaid || 0);
 
-  const change = paid > netAmount ? paid - netAmount : 0;
+  const change = paid >= netAmount ? paid - netAmount : 0;
 
-  const remaining =
-    paid < netAmount ? netAmount - paid : 0;
+  const remaining = paid < netAmount ? netAmount - paid : 0;
 
   return (
     <div className="bg-white rounded-xl shadow-lg h-full flex flex-col">
-
       {/* Header */}
-
       <div className="border-b p-5">
-
         <h2 className="text-2xl font-bold">
-
           Bill Summary
-
         </h2>
-
       </div>
 
       {/* Body */}
 
       <div className="flex-1 p-5 space-y-4">
-
-        <Row
-          title="Gross Amount"
-          value={grossAmount}
-        />
-
-        <Row
-          title="Savings"
-          value={savings}
-          green
-        />
-
-        <Row
-          title="GST"
-          value={gst}
-        />
+        <Row title="Gross Amount" value={grossAmount} />
 
         <Row
           title="Discount"
-          value={0}
+          value={discount}
         />
+
+        <Row title="GST" value={gst} />
+        <Row title="Savings" value={bill?.savings || 0} green />
 
         <hr />
 
         <div className="flex justify-between text-2xl font-bold">
-
           <span>Net Amount</span>
 
           <span className="text-blue-600">
-
             ₹ {netAmount}
-
           </span>
-
         </div>
 
         <hr />
 
-        {/* Payment */}
+        {/* Payment Mode */}
 
         <div>
-
           <h3 className="font-semibold mb-3">
-
             Payment Mode
-
           </h3>
 
           <div className="grid grid-cols-3 gap-2">
-
             <button
               onClick={() =>
                 setPaymentMode("Cash")
@@ -119,9 +75,7 @@ function BillSummary({ cart }) {
               }`}
             >
               <FaMoneyBillWave className="mx-auto mb-2" />
-
               Cash
-
             </button>
 
             <button
@@ -135,9 +89,7 @@ function BillSummary({ cart }) {
               }`}
             >
               <FaCreditCard className="mx-auto mb-2" />
-
               Card
-
             </button>
 
             <button
@@ -151,23 +103,16 @@ function BillSummary({ cart }) {
               }`}
             >
               <FaMobileAlt className="mx-auto mb-2" />
-
               UPI
-
             </button>
-
           </div>
-
         </div>
 
         {/* Customer Paid */}
 
         <div>
-
           <label className="font-semibold">
-
             Customer Paid
-
           </label>
 
           <input
@@ -179,65 +124,44 @@ function BillSummary({ cart }) {
             placeholder="Enter Amount"
             className="w-full mt-2 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
           />
-
         </div>
 
         {/* Change */}
 
         {paid >= netAmount ? (
           <div className="bg-green-100 rounded-xl p-4">
-
             <h3 className="text-green-700 font-semibold">
-
               Change Return
-
             </h3>
 
             <p className="text-3xl font-bold">
-
               ₹ {change}
-
             </p>
-
           </div>
         ) : (
           <div className="bg-red-100 rounded-xl p-4">
-
             <h3 className="text-red-700 font-semibold">
-
               Remaining Amount
-
             </h3>
 
             <p className="text-3xl font-bold">
-
               ₹ {remaining}
-
             </p>
-
           </div>
         )}
-
       </div>
 
       {/* Footer */}
 
       <div className="border-t p-5 space-y-3">
-
         <button className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-semibold">
-
           Hold Bill
-
         </button>
 
         <button className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold">
-
           Checkout
-
         </button>
-
       </div>
-
     </div>
   );
 }
@@ -245,7 +169,6 @@ function BillSummary({ cart }) {
 function Row({ title, value, green }) {
   return (
     <div className="flex justify-between">
-
       <span>{title}</span>
 
       <span
@@ -255,7 +178,6 @@ function Row({ title, value, green }) {
       >
         ₹ {value}
       </span>
-
     </div>
   );
 }
