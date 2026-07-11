@@ -23,7 +23,7 @@ const billingRoutes = require("./routes/billingRoutes");
 const billRoutes = require("./routes/billRoutes");
 
 
-app.use("/api/products", formidable(),productRoutes);
+app.use("/api/products",productRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/bills", billRoutes);
 

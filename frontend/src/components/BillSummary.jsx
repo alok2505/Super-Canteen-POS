@@ -10,6 +10,7 @@ function BillSummary({ bill,
     cart,
     clearCart, }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
+  const [customerName, setCustomerName] = useState("Walk-in");
   const [customerPaid, setCustomerPaid] = useState("");
 
   // Values from backend
@@ -55,6 +56,8 @@ function BillSummary({ bill,
 
       totalQuantity: bill.totalQuantity,
 
+      customerName: customerName.trim() || "Walk-in",
+
       paymentMode,
 
       customerPaid: Number(customerPaid),
@@ -67,6 +70,7 @@ function BillSummary({ bill,
 
     clearCart();
 
+    setCustomerName("Walk-in");
     setCustomerPaid("");
 
   } catch (error) {
@@ -160,6 +164,21 @@ function BillSummary({ bill,
               UPI
             </button>
           </div>
+        </div>
+
+        {/* Customer Name */}
+
+        <div>
+          <label className="font-semibold">
+            Customer Name / Walk-in
+          </label>
+
+          <input
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="Walk-in"
+            className="w-full mt-2 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         {/* Customer Paid */}

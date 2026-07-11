@@ -15,9 +15,16 @@ const billItemSchema = new mongoose.Schema({
 
 const billSchema = new mongoose.Schema(
   {
+    billNumber: {
+      type: String,
+      trim: true,
+    },
+
     billNo: {
       type: String,
       unique: true,
+      sparse: true,
+      trim: true,
     },
 
     items: [billItemSchema],
@@ -33,6 +40,15 @@ const billSchema = new mongoose.Schema(
     gst: Number,
 
     netAmount: Number,
+
+    totalItems: Number,
+
+    totalQuantity: Number,
+
+    customerName: {
+      type: String,
+      default: "Walk-in",
+    },
 
     paymentMode: {
       type: String,

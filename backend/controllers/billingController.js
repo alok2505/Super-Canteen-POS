@@ -190,6 +190,7 @@ const previewBill = asyncHandler(async (req, res) => {
  return res.json({
   success: true,
   bill: {
+    billNumber: `BILL-${Date.now()}`,
     items: billItems,
     grossAmount,
     sellingAmount,

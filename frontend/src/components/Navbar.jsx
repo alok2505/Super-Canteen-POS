@@ -4,13 +4,15 @@ import {
   FaUserCircle,
   FaCalendarAlt,
 } from "react-icons/fa";
+import { previewBill } from "../services/ProductApi";
+
 
 function Navbar() {
   const [activeTab, setActiveTab] = useState("Billing");
 
   const today = new Date().toLocaleDateString("en-IN");
 
-  const invoiceNo = `INV-${Date.now().toString().slice(-6)}`;
+  
 
   return (
     <header className="bg-white shadow-sm border-b">
@@ -76,7 +78,7 @@ function Navbar() {
           <div>
 
             <span className="font-semibold">
-              {invoiceNo}
+              {previewBill?.billNumber || previewBill?.billNo || "N/A"}
             </span>
 
           </div>

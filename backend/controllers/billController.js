@@ -17,6 +17,9 @@ const saveBill = asyncHandler(async (req, res) => {
     netAmount,
     totalItems,
     totalQuantity,
+    billNo,
+    billNumber,
+    customerName,
     paymentMode,
     customerPaid,
     changeReturned,
@@ -29,20 +32,28 @@ const saveBill = asyncHandler(async (req, res) => {
     });
   }
 
-  // Generate Bill Number
-  const lastBill = await Bill.findOne().sort({ createdAt: -1 });
+  let finalBillNo = billNo || billNumber;
 
-  let nextNumber = 1;
+  if (!finalBillNo) {
+    const lastBill = await Bill.findOne().sort({ createdAt: -1 });
 
-  if (lastBill) {
-    nextNumber =
-      parseInt(lastBill.billNumber.replace("BILL", "")) + 1;
+    let nextNumber = 1;
+
+    if (lastBill) {
+      const lastBillNo = lastBill.billNo || lastBill.billNumber || "";
+      const match = lastBillNo.match(/(\d+)$/);
+
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    finalBillNo = `BILL${String(nextNumber).padStart(5, "0")}`;
   }
 
-  const billNumber = `BILL${String(nextNumber).padStart(5, "0")}`;
-
   const bill = await Bill.create({
-    billNumber,
+    billNumber: finalBillNo,
+    billNo: finalBillNo,
 
     items,
 
@@ -63,6 +74,8 @@ const saveBill = asyncHandler(async (req, res) => {
     totalItems,
 
     totalQuantity,
+
+    customerName: customerName || "Walk-in",
 
     paymentMode,
 
