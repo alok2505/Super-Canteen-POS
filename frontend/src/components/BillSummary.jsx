@@ -4,8 +4,11 @@ import {
   FaCreditCard,
   FaMobileAlt,
 } from "react-icons/fa";
+import { saveBill } from "../services/billApi";
 
-function BillSummary({ bill }) {
+function BillSummary({ bill,
+    cart,
+    clearCart, }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerPaid, setCustomerPaid] = useState("");
 
@@ -21,6 +24,57 @@ function BillSummary({ bill }) {
   const change = paid >= netAmount ? paid - netAmount : 0;
 
   const remaining = paid < netAmount ? netAmount - paid : 0;
+
+  // Handle Checkout
+
+  const handleCheckout = async () => {
+  if (!bill || !bill.items?.length) {
+    alert("No items in cart.");
+    return;
+  }
+
+  try {
+    const response = await saveBill({
+      items: bill.items,
+
+      grossAmount: bill.grossAmount,
+
+      sellingAmount: bill.sellingAmount,
+
+      savings: bill.savings,
+
+      discount: bill.discount,
+
+      couponDiscount: bill.couponDiscount,
+
+      gst: bill.gst,
+
+      netAmount: bill.netAmount,
+
+      totalItems: bill.totalItems,
+
+      totalQuantity: bill.totalQuantity,
+
+      paymentMode,
+
+      customerPaid: Number(customerPaid),
+
+      changeReturned:
+        Number(customerPaid) - bill.netAmount,
+    });
+
+    alert(response.data.message);
+
+    clearCart();
+
+    setCustomerPaid("");
+
+  } catch (error) {
+    console.log(error);
+
+    alert("Unable to save bill.");
+  }
+};
 
   return (
     <div className="bg-white rounded-xl shadow-lg h-full flex flex-col">
@@ -158,7 +212,7 @@ function BillSummary({ bill }) {
           Hold Bill
         </button>
 
-        <button className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold">
+        <button onClick={handleCheckout} className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold">
           Checkout
         </button>
       </div>

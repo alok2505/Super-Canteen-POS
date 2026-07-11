@@ -20,10 +20,12 @@ app.use(morgan("dev"));
 // Routes
 const productRoutes = require("./routes/productRoutes");
 const billingRoutes = require("./routes/billingRoutes");
+const billRoutes = require("./routes/billRoutes");
 
 
 app.use("/api/products", formidable(),productRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/bills", billRoutes);
 
 // Default Route
 app.get("/", (req, res) => {
