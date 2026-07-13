@@ -15,11 +15,6 @@ const billItemSchema = new mongoose.Schema({
 
 const billSchema = new mongoose.Schema(
   {
-    billNumber: {
-      type: String,
-      trim: true,
-    },
-
     billNo: {
       type: String,
       unique: true,

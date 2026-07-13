@@ -1,5 +1,21 @@
 const asyncHandler = require("../middlewares/asyncHandler");
 const Product = require("../models/productModel");
+const Bill = require("../models/billModel");
+
+const generateNextBillNo = async () => {
+  const lastBill = await Bill.findOne().sort({ createdAt: -1 }).lean();
+
+  let nextNumber = 1;
+
+  if (lastBill?.billNo) {
+    const match = String(lastBill.billNo).match(/(\d+)$/);
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1;
+    }
+  }
+
+  return `BILL${String(nextNumber).padStart(5, "0")}`;
+};
 
 const previewBill = asyncHandler(async (req, res) => {
   const {
@@ -167,6 +183,7 @@ const previewBill = asyncHandler(async (req, res) => {
 
   const billDiscount = Number(discount);
   const coupon = Number(couponDiscount);
+  const billNo = await generateNextBillNo();
 
   // GST on selling amount after discounts
   const taxableAmount =
@@ -189,8 +206,8 @@ const previewBill = asyncHandler(async (req, res) => {
 
  return res.json({
   success: true,
+  billNo,
   bill: {
-    billNumber: `BILL-${Date.now()}`,
     items: billItems,
     grossAmount,
     sellingAmount,
@@ -201,6 +218,7 @@ const previewBill = asyncHandler(async (req, res) => {
     netAmount,
     totalItems,
     totalQuantity,
+    billNo,
   }
 });
 });

@@ -4,10 +4,8 @@ import {
   FaUserCircle,
   FaCalendarAlt,
 } from "react-icons/fa";
-import { previewBill } from "../services/ProductApi";
 
-
-function Navbar() {
+function Navbar({ billNo }) {
   const [activeTab, setActiveTab] = useState("Billing");
 
   const today = new Date().toLocaleDateString("en-IN");
@@ -76,11 +74,9 @@ function Navbar() {
           </div>
 
           <div>
-
             <span className="font-semibold">
-              {previewBill?.billNumber || previewBill?.billNo || "N/A"}
+              {billNo || "New Bill"}
             </span>
-
           </div>
 
           <div className="flex items-center gap-2">

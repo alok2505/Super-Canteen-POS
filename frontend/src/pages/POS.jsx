@@ -28,7 +28,10 @@ function POS() {
 
       const response = await previewBill(items);
 
-      setBill(response.data.bill);
+      setBill({
+        ...response.data.bill,
+        billNo: response.data.billNo,
+      });
     } catch (error) {
       console.log(error);
     }
@@ -93,7 +96,7 @@ function POS() {
 
   return (
     <div className="h-screen bg-slate-100 flex flex-col">
-      <Navbar />
+      <Navbar billNo={bill?.billNo} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT */}

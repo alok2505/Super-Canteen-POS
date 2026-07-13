@@ -56,6 +56,8 @@ function BillSummary({ bill,
 
       totalQuantity: bill.totalQuantity,
 
+      billNo: bill?.billNo,
+
       customerName: customerName.trim() || "Walk-in",
 
       paymentMode,
@@ -84,9 +86,14 @@ function BillSummary({ bill,
     <div className="bg-white rounded-xl shadow-lg h-full flex flex-col">
       {/* Header */}
       <div className="border-b p-5">
-        <h2 className="text-2xl font-bold">
-          Bill Summary
-        </h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-2xl font-bold">
+            Bill Summary
+          </h2>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+            {bill?.billNo || "Pending"}
+          </span>
+        </div>
       </div>
 
       {/* Body */}

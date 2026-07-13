@@ -18,7 +18,6 @@ const saveBill = asyncHandler(async (req, res) => {
     totalItems,
     totalQuantity,
     billNo,
-    billNumber,
     customerName,
     paymentMode,
     customerPaid,
@@ -32,16 +31,15 @@ const saveBill = asyncHandler(async (req, res) => {
     });
   }
 
-  let finalBillNo = billNo || billNumber;
+  let finalBillNo = billNo;
 
   if (!finalBillNo) {
     const lastBill = await Bill.findOne().sort({ createdAt: -1 });
 
     let nextNumber = 1;
 
-    if (lastBill) {
-      const lastBillNo = lastBill.billNo || lastBill.billNumber || "";
-      const match = lastBillNo.match(/(\d+)$/);
+    if (lastBill?.billNo) {
+      const match = String(lastBill.billNo).match(/(\d+)$/);
 
       if (match) {
         nextNumber = parseInt(match[1], 10) + 1;
@@ -52,7 +50,6 @@ const saveBill = asyncHandler(async (req, res) => {
   }
 
   const bill = await Bill.create({
-    billNumber: finalBillNo,
     billNo: finalBillNo,
 
     items,

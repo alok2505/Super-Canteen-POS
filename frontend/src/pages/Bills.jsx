@@ -41,7 +41,7 @@ function Bills() {
 
       <div className="space-y-4">
         {filteredBills.length > 0 ? (
-          filteredBills.map((bill) => <BillCard key={bill._id} bill={bill} />)
+          filteredBills.map((bill) => <BillCard  key={bill._id} bill={bill} />)
         ) : (
           <div className="rounded-xl bg-white p-6 text-center text-slate-600 shadow-sm">
             No bills found.

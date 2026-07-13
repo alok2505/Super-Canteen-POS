@@ -10,6 +10,9 @@ import MainLayout from "./layouts/MainLayout";
 import POS from "./pages/POS";
 import Bills from "./pages/Bills";
 import Products from "./pages/Products";
+import BillDetails from "./pages/BillDetails";
+
+
 
 function App() {
   return (
@@ -37,6 +40,9 @@ function App() {
             path="/bills"
             element={<Bills />}
           />
+
+          <Route path="/bills/:id" element={<BillDetails />} />
+
 
         </Route>
 
