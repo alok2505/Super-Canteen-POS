@@ -19,6 +19,7 @@ const saveBill = asyncHandler(async (req, res) => {
     totalQuantity,
     billNo,
     customerName,
+    customerMobile,
     paymentMode,
     customerPaid,
     changeReturned,
@@ -73,6 +74,8 @@ const saveBill = asyncHandler(async (req, res) => {
     totalQuantity,
 
     customerName: customerName || "Walk-in",
+
+    customerMobile,
 
     paymentMode,
 

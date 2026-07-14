@@ -80,7 +80,7 @@ function BillDetails() {
                         <p className="text-2xl font-bold text-slate-800">{bill.billNo || "N/A"}</p>
                     </div>
                     
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-x-6 gap-y-4">
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Date</p>
                             <p className="font-medium text-slate-800 whitespace-nowrap">{new Date(bill.createdAt).toLocaleDateString()}</p>
@@ -89,6 +89,10 @@ function BillDetails() {
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Customer</p>
                             <p className="font-medium text-slate-800">{bill.customerName || "Walk-in"}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-slate-500 mb-1">Mobile</p>
+                            <p className="font-medium text-slate-800">{bill.customerMobile || "N/A"}</p>
                         </div>
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Payment Mode</p>

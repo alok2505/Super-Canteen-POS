@@ -11,6 +11,7 @@ function BillSummary({ bill,
     clearCart, }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerName, setCustomerName] = useState("Walk-in");
+  const [customerMobile, setCustomerMobile] = useState("");
   const [customerPaid, setCustomerPaid] = useState("");
 
   // Values from backend
@@ -60,6 +61,8 @@ function BillSummary({ bill,
 
       customerName: customerName.trim() || "Walk-in",
 
+      customerMobile: customerMobile.trim(),
+
       paymentMode,
 
       customerPaid: Number(customerPaid),
@@ -73,6 +76,7 @@ function BillSummary({ bill,
     clearCart();
 
     setCustomerName("Walk-in");
+    setCustomerMobile("");
     setCustomerPaid("");
 
   } catch (error) {
@@ -188,6 +192,21 @@ function BillSummary({ bill,
           />
         </div>
 
+        {/* Customer Mobile */}
+
+        <div>
+          <label className="font-semibold">
+            Mobile Number
+          </label>
+
+          <input
+            value={customerMobile}
+            onChange={(e) => setCustomerMobile(e.target.value)}
+            placeholder="e.g. 9876543210"
+            className="w-full mt-2 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
         {/* Customer Paid */}
 
         <div>
@@ -234,9 +253,7 @@ function BillSummary({ bill,
       {/* Footer */}
 
       <div className="border-t p-5 space-y-3">
-        <button className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-semibold">
-          Hold Bill
-        </button>
+        
 
         <button onClick={handleCheckout} className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold">
           Checkout

@@ -45,6 +45,10 @@ const billSchema = new mongoose.Schema(
       default: "Walk-in",
     },
 
+    customerMobile: {
+      type: String,
+    },
+
     paymentMode: {
       type: String,
       enum: ["Cash", "Card", "UPI"],

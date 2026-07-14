@@ -21,11 +21,13 @@ app.use(morgan("dev"));
 const productRoutes = require("./routes/productRoutes");
 const billingRoutes = require("./routes/billingRoutes");
 const billRoutes = require("./routes/billRoutes");
+const holdBillRoutes = require("./routes/holdBillRoutes");
 
 
 app.use("/api/products",productRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/bills", billRoutes);
+app.use("/api/hold-bills", holdBillRoutes);
 
 // Default Route
 app.get("/", (req, res) => {
