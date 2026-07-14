@@ -115,7 +115,10 @@ function POS() {
         {/* RIGHT */}
 
         <div className="w-[30%] p-4">
-          <BillSummary bill={bill} cart={cart} clearCart={() => setCart([])} />
+          <BillSummary bill={bill}
+  cart={cart}
+  clearCart={() => setCart([])}
+  clearBill={() => setBill(null)} />
         </div>
       </div>
     </div>
