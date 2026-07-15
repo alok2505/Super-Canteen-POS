@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import SearchBar from "../components/Searchbar";
@@ -9,6 +10,24 @@ import { previewBill } from "../services/ProductApi";
 function POS() {
   const [cart, setCart] = useState([]);
   const [bill, setBill] = useState(null);
+  const location = useLocation();
+
+  const [resumeHoldBill, setResumeHoldBill] = useState(null);
+
+  useEffect(() => {
+    if (location.state?.resumeHoldBill) {
+      const holdBill = location.state.resumeHoldBill;
+      setResumeHoldBill(holdBill);
+      if (holdBill.items && holdBill.items.length > 0) {
+        setCart(holdBill.items.map(item => ({
+          ...item,
+          quantity: item.quantity || 1
+        })));
+      }
+      // Clear state so we don't reload it on refresh
+      window.history.replaceState({}, document.title)
+    }
+  }, [location]);
 
   useEffect(() => {
     if (cart.length === 0) {
@@ -115,10 +134,14 @@ function POS() {
         {/* RIGHT */}
 
         <div className="w-[30%] p-4">
-          <BillSummary bill={bill}
-  cart={cart}
-  clearCart={() => setCart([])}
-  clearBill={() => setBill(null)} />
+          <BillSummary 
+            bill={bill} 
+            cart={cart} 
+            clearCart={() => setCart([])}
+            clearBill={() => setBill(null)}
+            resumeHoldBill={resumeHoldBill}
+            clearResumeHoldBill={() => setResumeHoldBill(null)}
+          />
         </div>
       </div>
     </div>

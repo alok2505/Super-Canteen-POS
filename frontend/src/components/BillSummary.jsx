@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaMoneyBillWave, FaCreditCard, FaMobileAlt } from "react-icons/fa";
 import { saveBill } from "../services/billApi";
-import { saveHoldBill } from "../services/holdBillApi";
+import { saveHoldBill, deleteHoldBill } from "../services/holdBillApi";
 
-function BillSummary({ bill, cart, clearCart, clearBill }) {
+function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearResumeHoldBill }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerName, setCustomerName] = useState("Walk-in");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerPaid, setCustomerPaid] = useState("");
+
+  useEffect(() => {
+    if (resumeHoldBill) {
+      setCustomerName(resumeHoldBill.customerName || "Walk-in");
+      setCustomerMobile(resumeHoldBill.customerMobile || "");
+      setCustomerPaid(resumeHoldBill.customerPaid || "");
+      setPaymentMode(resumeHoldBill.paymentMode || "Cash");
+    }
+  }, [resumeHoldBill]);
 
   // Values from backend
   const grossAmount = bill?.grossAmount || 0;
@@ -22,106 +31,116 @@ function BillSummary({ bill, cart, clearCart, clearBill }) {
 
   const remaining = paid < netAmount ? netAmount - paid : 0;
 
+  const canSubmitBill = Boolean(bill?.items?.length);
+
   // Handle Hold Bill
   const handleHoldBill = async () => {
-    if (!bill || bill.items.length === 0) {
+    if (!canSubmitBill) {
       alert("Cart is empty");
       return;
     }
 
     try {
       const res = await saveHoldBill({
-        customerName: "Walk-in",
-
+        customerName: customerName.trim() || "Walk-in",
+        customerMobile: customerMobile.trim(),
         items: bill.items,
-
         grossAmount: bill.grossAmount,
-
         sellingAmount: bill.sellingAmount,
-
         savings: bill.savings,
-
         discount: bill.discount,
-
         couponDiscount: bill.couponDiscount,
-
         gst: bill.gst,
-
         netAmount: bill.netAmount,
-
         totalItems: bill.totalItems,
-
         totalQuantity: bill.totalQuantity,
+        billNo: bill?.billNo || resumeHoldBill?.billNo,
+        paymentMode,
+        customerPaid: Number(customerPaid),
+        changeReturned: Number(customerPaid) - bill.netAmount,
       });
 
-      alert(res.data.message);
+      if (res?.data?.success) {
+        if (resumeHoldBill && resumeHoldBill._id) {
+            await deleteHoldBill(resumeHoldBill._id);
+        }
+        alert(res.data.message || "Bill placed on hold successfully.");
 
-      clearCart();
-
-      clearBill();
-
-      setCustomerPaid("");
+        clearCart();
+        clearBill();
+        setCustomerName("Walk-in");
+        setCustomerMobile("");
+        setCustomerPaid("");
+        setPaymentMode("Cash");
+        if (clearResumeHoldBill) clearResumeHoldBill();
+      } else {
+        alert(res?.data?.message || "Unable to hold bill");
+      }
     } catch (err) {
       console.log(err);
-
-      alert("Unable to hold bill");
+      alert(err?.response?.data?.message || "Unable to hold bill");
     }
   };
 
   // Handle Checkout
 
   const handleCheckout = async () => {
-    if (!bill || !bill.items?.length) {
+    if (!canSubmitBill) {
       alert("No items in cart.");
+      return;
+    }
+
+    const paidAmount = Number(customerPaid);
+
+    if (!customerPaid || Number.isNaN(paidAmount)) {
+      alert("Please enter a valid paid amount.");
+      return;
+    }
+
+    if (paidAmount < netAmount) {
+      alert(`Paid amount must be at least ₹${netAmount}.`);
       return;
     }
 
     try {
       const response = await saveBill({
         items: bill.items,
-
         grossAmount: bill.grossAmount,
-
         sellingAmount: bill.sellingAmount,
-
         savings: bill.savings,
-
         discount: bill.discount,
-
         couponDiscount: bill.couponDiscount,
-
         gst: bill.gst,
-
         netAmount: bill.netAmount,
-
         totalItems: bill.totalItems,
-
         totalQuantity: bill.totalQuantity,
-
         billNo: bill?.billNo,
-
         customerName: customerName.trim() || "Walk-in",
-
         customerMobile: customerMobile.trim(),
-
         paymentMode,
-
-        customerPaid: Number(customerPaid),
-
-        changeReturned: Number(customerPaid) - bill.netAmount,
+        customerPaid: paidAmount,
+        changeReturned: paidAmount - bill.netAmount,
       });
 
-      alert(response.data.message);
+      if (response?.data?.success) {
+        if (resumeHoldBill && resumeHoldBill._id) {
+            await deleteHoldBill(resumeHoldBill._id);
+        }
+        alert(response.data.message || "Bill saved successfully.");
 
-      clearCart();
-
-      setCustomerName("Walk-in");
-      setCustomerMobile("");
-      setCustomerPaid("");
+        clearCart();
+        clearBill();
+        setCustomerName("Walk-in");
+        setCustomerMobile("");
+        setCustomerPaid("");
+        setPaymentMode("Cash");
+        if (clearResumeHoldBill) clearResumeHoldBill();
+      } else {
+        alert(response?.data?.message || "Unable to save bill.");
+      }
     } catch (error) {
       console.log(error);
-
-      alert("Unable to save bill.");
+      alert(error?.response?.data?.message || "Unable to save bill.");
     }
   };
 
@@ -253,17 +272,18 @@ function BillSummary({ bill, cart, clearCart, clearBill }) {
       </div>
 
       {/* Footer */}
-      <button
+      <div className="border-t p-5  space-x-2.5 flex">
+
+        <button
         onClick={handleHoldBill}
-        className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-3 rounded-xl font-semibold"
+        className="w-1/2 bg-yellow-600 hover:bg-yellow-700 text-white py-3 rounded-xl font-semibold"
       >
         Hold Bill
       </button>
 
-      <div className="border-t p-5 space-y-3">
         <button
           onClick={handleCheckout}
-          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
+          className="w-1/2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold"
         >
           Checkout
         </button>

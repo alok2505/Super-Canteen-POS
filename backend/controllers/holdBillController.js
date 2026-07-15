@@ -9,6 +9,7 @@ const HoldBill = require("../models/holdBillModel");
 const saveHoldBill = asyncHandler(async (req, res) => {
   const {
     customerName = "Walk-in",
+    customerMobile,
     items,
     grossAmount,
     sellingAmount,
@@ -19,6 +20,11 @@ const saveHoldBill = asyncHandler(async (req, res) => {
     netAmount,
     totalItems,
     totalQuantity,
+    billNo,
+    paymentMode,
+    customerPaid,
+    changeReturned,
+    cashier,
   } = req.body;
 
   if (!items || items.length === 0) {
@@ -30,6 +36,7 @@ const saveHoldBill = asyncHandler(async (req, res) => {
 
   const holdBill = await HoldBill.create({
     customerName,
+    customerMobile,
     items,
     grossAmount,
     sellingAmount,
@@ -40,6 +47,11 @@ const saveHoldBill = asyncHandler(async (req, res) => {
     netAmount,
     totalItems,
     totalQuantity,
+    billNo,
+    paymentMode,
+    customerPaid,
+    changeReturned,
+    cashier,
   });
 
   res.status(201).json({

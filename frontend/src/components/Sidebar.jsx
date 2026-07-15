@@ -60,6 +60,13 @@ function Sidebar({ collapsed, onToggle }) {
           <FaFileInvoice className="shrink-0" />
           {!collapsed && <span>Bills</span>}
         </NavLink>
+
+        <NavLink to="/hold-bills" className={({ isActive }) =>
+            `${baseLinkClass} ${isActive ? "bg-slate-800" : ""}`
+          }>
+            <FaFileInvoice className="shrink-0" />
+            {!collapsed && <span>Hold Bills</span>}
+          </NavLink>
       </nav>
     </aside>
   );

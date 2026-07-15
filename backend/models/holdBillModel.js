@@ -22,8 +22,36 @@ const holdBillSchema = new mongoose.Schema(
     sellingAmount: Number,
     savings: Number,
     discount: Number,
+    couponDiscount: Number,
     gst: Number,
     netAmount: Number,
+
+    totalItems: Number,
+    totalQuantity: Number,
+
+    billNo: {
+      type: String,
+      sparse: true,
+      trim: true,
+    },
+
+    customerMobile: {
+      type: String,
+    },
+
+    paymentMode: {
+      type: String,
+      enum: ["Cash", "Card", "UPI"],
+      default: "Cash",
+    },
+
+    customerPaid: Number,
+    changeReturned: Number,
+
+    cashier: {
+      type: String,
+      default: "Admin",
+    },
 
     status: {
       type: String,
