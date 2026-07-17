@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const morgan = require("morgan");
 const formidable = require("express-formidable");
+const cookieParser = require("cookie-parser");
 
 
 
@@ -15,6 +16,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(morgan("dev"));
 
 // Routes
@@ -22,12 +24,16 @@ const productRoutes = require("./routes/productRoutes");
 const billingRoutes = require("./routes/billingRoutes");
 const billRoutes = require("./routes/billRoutes");
 const holdBillRoutes = require("./routes/holdBillRoutes");
+const userRoutes = require("./routes/userRoutes");
+const franchiseRoutes = require("./routes/franchiseRoutes");
 
 
 app.use("/api/products",productRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/bills", billRoutes);
 app.use("/api/hold-bills", holdBillRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/franchises", franchiseRoutes);
 
 // Default Route
 app.get("/", (req, res) => {

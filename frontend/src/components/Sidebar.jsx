@@ -5,10 +5,23 @@ import {
   FaBox,
   FaFileInvoice,
   FaTimes,
+  FaStore,
+  FaSignOutAlt,
 } from "react-icons/fa";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
 function Sidebar({ collapsed, onToggle }) {
+  const navigate = useNavigate();
+  const userRaw = localStorage.getItem("user");
+  const user = userRaw ? JSON.parse(userRaw) : null;
+  const isAdmin = user?.role === "Admin";
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+
   const baseLinkClass =
     "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-slate-800";
 
@@ -66,8 +79,27 @@ function Sidebar({ collapsed, onToggle }) {
           }>
             <FaFileInvoice className="shrink-0" />
             {!collapsed && <span>Hold Bills</span>}
+        </NavLink>
+
+        {isAdmin && (
+          <NavLink to="/franchises" className={({ isActive }) =>
+              `${baseLinkClass} ${isActive ? "bg-slate-800" : ""}`
+            }>
+              <FaStore className="shrink-0" />
+              {!collapsed && <span>Franchises</span>}
           </NavLink>
+        )}
       </nav>
+
+      <div className="p-3 border-t border-slate-800">
+        <button
+          onClick={handleLogout}
+          className={`${baseLinkClass} w-full text-left text-red-400 hover:text-red-300`}
+        >
+          <FaSignOutAlt className="shrink-0" />
+          {!collapsed && <span>Logout</span>}
+        </button>
+      </div>
     </aside>
   );
 }
