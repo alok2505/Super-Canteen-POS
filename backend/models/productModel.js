@@ -1,6 +1,14 @@
 const mongoose = require("mongoose");
 const ObjectId = mongoose.Schema.Types.ObjectId;
 
+// ✅ Location Schema
+const locationSchema = new mongoose.Schema({
+  section: { type: String, default: "" },
+  rack: { type: String, default: "" },
+  shelf: { type: String, default: "" },
+  bin: { type: String, default: "" },
+}, { _id: false });
+
 // ✅ Review Schema
 const reviewSchema = new mongoose.Schema(
   {
@@ -23,6 +31,7 @@ const sizeSchema = new mongoose.Schema({
   minOrderQuantity: { type: Number, default: 1 },
   maxOrderQuantity: { type: Number },
   variantStockThreshold: { type: Number, default: 5 },
+  location: { type: locationSchema, default: () => ({}) },
 });
 
 // ✅ Color Variant Schema (for clothing/footwear)
@@ -46,6 +55,7 @@ const flatVariantSchema = new mongoose.Schema({
   minOrderQuantity: { type: Number, default: 1 },
   maxOrderQuantity: { type: Number },
   variantStockThreshold: { type: Number, default: 5 },
+  location: { type: locationSchema, default: () => ({}) },
 });
 
 const franchiseInventorySchema = new mongoose.Schema({
@@ -71,6 +81,7 @@ const franchiseInventorySchema = new mongoose.Schema({
       ref: "Coupon",
     },
   ],
+  location: { type: locationSchema, default: () => ({}) },
 });
 
 // Product Schema

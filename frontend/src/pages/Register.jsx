@@ -7,6 +7,7 @@ function Register() {
     username: "",
     email: "",
     password: "",
+    contactNo: "",
   });
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -51,6 +52,17 @@ function Register() {
               type="email"
               name="email"
               value={formData.email}
+              onChange={handleChange}
+              required
+              className="mt-1 w-full border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Contact Number</label>
+            <input
+              type="text"
+              name="contactNo"
+              value={formData.contactNo}
               onChange={handleChange}
               required
               className="mt-1 w-full border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"

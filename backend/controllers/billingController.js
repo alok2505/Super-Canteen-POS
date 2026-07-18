@@ -41,7 +41,11 @@ const previewBill = asyncHandler(async (req, res) => {
   let totalQuantity = 0;
 
   for (const cartItem of items) {
-    const { barcode, quantity } = cartItem;
+    const { barcode, quantity, location } = cartItem;
+
+    if (!barcode || !Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
+      return res.status(400).json({ success: false, message: "Each cart item needs a barcode and a positive quantity." });
+    }
 
     const product = await Product.findOne({
       $or: [
@@ -61,6 +65,7 @@ const previewBill = asyncHandler(async (req, res) => {
     let mrp = 0;
     let price = 0;
     let stock = 0;
+    let matched = false;
 
     let size = null;
     let color = null;
@@ -79,13 +84,14 @@ const previewBill = asyncHandler(async (req, res) => {
 
       sku = product.sku;
       size = product.size;
+      matched = true;
     }
 
     // -----------------------------
     // Weight Pack
     // -----------------------------
 
-    if (price === 0) {
+    if (!matched) {
       for (const variant of product.flatVariants || []) {
         if (variant.barcode === barcode) {
           mrp = variant.mrp;
@@ -94,6 +100,7 @@ const previewBill = asyncHandler(async (req, res) => {
 
           sku = variant.sku;
           size = variant.size;
+          matched = true;
 
           break;
         }
@@ -104,7 +111,7 @@ const previewBill = asyncHandler(async (req, res) => {
     // Color Size
     // -----------------------------
 
-    if (price === 0) {
+    if (!matched) {
       outer:
       for (const c of product.colorVariants || []) {
         for (const s of c.sizes) {
@@ -116,9 +123,50 @@ const previewBill = asyncHandler(async (req, res) => {
             sku = s.sku;
             size = s.size;
             color = c.name;
+            matched = true;
 
             break outer;
           }
+        }
+      }
+    }
+
+    if (!matched) {
+      return res.status(404).json({ success: false, message: `Product variant not found for barcode ${barcode}` });
+    }
+
+    // Store staff sell from their own franchise inventory, not the master stock.
+    const franchiseId = req.user?.franchiseId?.toString();
+    if (franchiseId) {
+      const inventory = product.franchiseInventories?.find(
+        (entry) => entry.franchiseId?.toString() === franchiseId,
+      );
+      if (!inventory || !inventory.isEnable) {
+        return res.status(400).json({ success: false, message: `${product.name} is not enabled for this franchise.` });
+      }
+
+      if (product.barcode === barcode) {
+        mrp = inventory.mrp;
+        price = inventory.offerPrice;
+        stock = inventory.countInStock;
+      } else {
+        const flatVariant = inventory.flatVariants?.find((variant) => variant.barcode === barcode);
+        if (flatVariant) {
+          mrp = flatVariant.mrp;
+          price = flatVariant.offerPrice;
+          stock = flatVariant.countInStock;
+        } else {
+          let storeSize;
+          for (const storeColor of inventory.colorVariants || []) {
+            storeSize = storeColor.sizes?.find((entry) => entry.barcode === barcode);
+            if (storeSize) break;
+          }
+          if (!storeSize) {
+            return res.status(400).json({ success: false, message: `${product.name} is not configured for this franchise.` });
+          }
+          mrp = storeSize.mrp;
+          price = storeSize.offerPrice;
+          stock = storeSize.countInStock;
         }
       }
     }
@@ -174,6 +222,8 @@ const previewBill = asyncHandler(async (req, res) => {
       saving,
 
       stock,
+
+      location,
     });
   }
 

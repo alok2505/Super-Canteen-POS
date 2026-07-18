@@ -40,7 +40,7 @@ const {
   verifyOTPforUserDeletion
 } = require("../controllers/userController.js");
 
-const { createContactMessage, getAllContactMessages, deleteMultipleContactMessages } = require("../controllers/contactUs.js");
+// const { createContactMessage, getAllContactMessages, deleteMultipleContactMessages } = require("../controllers/contactUs.js");
 
 const { authenticate, requireRole} = require("../middlewares/authMiddleware.js");
 const roleMiddleware = require("../middlewares/roleMiddleware.js");
@@ -100,9 +100,9 @@ router.post("/set-default-address/:userId", authenticate, setDefaultAddress);
 router.delete("/delete-AddressByUserId/:userId/address/:addressId", authenticate, deleteAddress);
 
 //contactUs 
-router.post("/create-contactUs", authenticate, createContactMessage);
-router.get("/get-allContactUs", authenticate, getAllContactMessages);
-router.delete("/delete-multipleContactUs", authenticate, deleteMultipleContactMessages);
+// router.post("/create-contactUs", authenticate, createContactMessage);
+// router.get("/get-allContactUs", authenticate, getAllContactMessages);
+// router.delete("/delete-multipleContactUs", authenticate, deleteMultipleContactMessages);
 
 //toogleActivity
 router.patch("/toggle-availability", authenticate, roleMiddleware(["Admin", "StoreManager"]), toggleAvailability);

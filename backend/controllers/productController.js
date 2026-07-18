@@ -1844,8 +1844,9 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
     if (subCategory) searchQuery.subCategory = subCategory;
     if (segment) searchQuery.segment = segment;
 
-    // ✅ FIXED — apply for anyone with franchiseId, not just "Customer"
-    if (franchiseId) {
+    // Public/store listings only show enabled sellable inventory. Admin needs to
+    // see zero-stock entries too, so they can add the first stock to a store.
+    if (franchiseId && role !== "Admin") {
       searchQuery.franchiseInventories = {
         $elemMatch: {
           franchiseId: new mongoose.Types.ObjectId(franchiseId),
@@ -1881,10 +1882,10 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
     }
 
     const products = await query.lean();
-    const filteredProducts = products.filter((p) => p.category !== null);
-    const data = overlayInventory(filteredProducts, franchiseId);
+    const data = overlayInventory(products, franchiseId);
 
-    res.json({ success: true, data, pagination });
+    // Keep both names during the frontend transition.
+    res.json({ success: true, data, products: data, pagination });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Server Error", message: error.message });
@@ -2528,6 +2529,14 @@ const productSearch = asyncHandler(async (req, res) => {
         { "colorVariants.sizes.size": regex },
         { "colorVariants.sizes.sku": regex },
         { "colorVariants.sizes.barcode": regex }, // ⭐ NEW -> Search ColorSize Barcode
+        
+        // Location Search
+        { "franchiseInventories.location.section": regex },
+        { "franchiseInventories.location.rack": regex },
+        { "franchiseInventories.location.bin": regex },
+        { "franchiseInventories.flatVariants.location.section": regex },
+        { "franchiseInventories.flatVariants.location.rack": regex },
+        { "franchiseInventories.colorVariants.sizes.location.section": regex },
       ],
     };
 
@@ -3256,7 +3265,7 @@ const notifyBackInStockUsers = async ({
 // version - 1.1
 const updateStockCount = asyncHandler(async (req, res) => {
   const { productId } = req.params;
-  const { countInStock, variantId, franchiseId: bodyFranchiseId } = req.body;
+  const { countInStock, variantId, location, franchiseId: bodyFranchiseId } = req.body;
 
   if (
     countInStock === null ||
@@ -3280,10 +3289,28 @@ const updateStockCount = asyncHandler(async (req, res) => {
       req.user?.franchiseId?.toString() || bodyFranchiseId?.toString() || null;
 
     // ── StoreManager / InventoryStaff: update franchise inventory only ────────
-    if (franchiseId && role !== "Admin") {
-      const inv = product.franchiseInventories.find(
+    if (franchiseId) {
+      let inv = product.franchiseInventories.find(
         (fi) => fi.franchiseId.toString() === franchiseId,
       );
+      // Admin can start inventory for an older franchise that predates the
+      // automatic franchise inventory setup.
+      if (!inv && role === "Admin") {
+        product.franchiseInventories.push({
+          franchiseId,
+          mrp: product.mrp || 0,
+          offerPrice: product.offerPrice || 0,
+          minOrderQuantity: product.minOrderQuantity || 1,
+          maxOrderQuantity: product.maxOrderQuantity,
+          countInStock: 0,
+          lowStockThreshold: product.lowStockThreshold || 10,
+          outOfStock: true,
+          isEnable: false,
+          flatVariants: (product.flatVariants || []).map((variant) => variant.toObject()),
+          colorVariants: (product.colorVariants || []).map((color) => color.toObject()),
+        });
+        inv = product.franchiseInventories[product.franchiseInventories.length - 1];
+      }
       if (!inv)
         return res.status(404).json({
           success: false,
@@ -3306,6 +3333,7 @@ const updateStockCount = asyncHandler(async (req, res) => {
 
           const previousVariantStock = storeVariant.countInStock;
           storeVariant.countInStock = newQty;
+          if (location) storeVariant.location = location;
 
           // back-in-stock notify
           if (previousVariantStock <= 0 && newQty > 0) {
@@ -3326,6 +3354,7 @@ const updateStockCount = asyncHandler(async (req, res) => {
             if (size) {
               const previousVariantStock = size.countInStock;
               size.countInStock = newQty;
+              if (location) size.location = location;
               if (previousVariantStock <= 0 && newQty > 0) {
                 await notifyBackInStockUsers({
                   product,
@@ -3358,11 +3387,14 @@ const updateStockCount = asyncHandler(async (req, res) => {
             cv.sizes.every((s) => (s.countInStock || 0) === 0),
           );
         }
+        inv.isEnable = !inv.outOfStock;
       } else {
         // ── Single product store stock ─────────────────────────────────────────
         const previousStock = inv.countInStock;
         inv.countInStock = newQty;
+        if (location) inv.location = location;
         inv.outOfStock = newQty === 0;
+        inv.isEnable = newQty > 0;
 
         if (previousStock <= 0 && newQty > 0) {
           await notifyBackInStockUsers({ product, triggeredBy: req.user?._id });
@@ -3393,6 +3425,7 @@ const updateStockCount = asyncHandler(async (req, res) => {
           if (size) {
             const previousVariantStock = size.countInStock;
             size.countInStock = Number(countInStock);
+            if (location) size.location = location;
             if (previousVariantStock <= 0 && Number(countInStock) > 0) {
               await notifyBackInStockUsers({
                 product,
@@ -3419,6 +3452,7 @@ const updateStockCount = asyncHandler(async (req, res) => {
 
         const previousVariantStock = flatVariant.countInStock;
         flatVariant.countInStock = Number(countInStock);
+        if (location) flatVariant.location = location;
 
         if (previousVariantStock <= 0 && Number(countInStock) > 0) {
           await notifyBackInStockUsers({
@@ -5022,6 +5056,7 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
           lowStockThreshold: inventory.lowStockThreshold,
           flatVariants: inventory.flatVariants,
           colorVariants: inventory.colorVariants,
+          location: inventory.location,
         };
       }
     }
@@ -5048,6 +5083,8 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
 
         minOrderQuantity: response.minOrderQuantity,
         maxOrderQuantity: response.maxOrderQuantity,
+
+        location: response.location,
 
         tax: product.tax || 0,
       };
@@ -5079,6 +5116,8 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
 
       minOrderQuantity: variant.minOrderQuantity,
       maxOrderQuantity: variant.maxOrderQuantity,
+
+      location: variant.location,
 
       tax: product.tax || 0,
     };
@@ -5115,6 +5154,8 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
 
         minOrderQuantity: size.minOrderQuantity,
         maxOrderQuantity: size.maxOrderQuantity,
+
+        location: size.location,
 
         tax: product.tax || 0,
       };

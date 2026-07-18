@@ -128,6 +128,16 @@ function BillDetails() {
                                     <td className="py-4">
                                         <p className="font-medium text-slate-800">{item.name}</p>
                                         {item.barcode && <p className="text-xs text-slate-400 mt-0.5">BC: {item.barcode}</p>}
+                                        {item.location && (item.location.section || item.location.rack || item.location.shelf || item.location.bin) && (
+                                            <p className="text-xs text-blue-600 mt-0.5 font-medium">
+                                                Loc: {[
+                                                    item.location.section && `Section ${item.location.section}`,
+                                                    item.location.rack && `Rack ${item.location.rack}`,
+                                                    item.location.shelf && `Shelf ${item.location.shelf}`,
+                                                    item.location.bin && `Bin ${item.location.bin}`
+                                                ].filter(Boolean).join(" → ")}
+                                            </p>
+                                        )}
                                     </td>
                                     <td className="py-4 text-center font-medium text-slate-700">{item.quantity}</td>
                                     <td className="py-4 text-right text-slate-400 line-through">₹{item.mrp?.toFixed(2) || "0.00"}</td>

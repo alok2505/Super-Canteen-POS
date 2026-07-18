@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { authenticate } = require("../middlewares/authMiddleware");
 
 const {
   addProduct,
@@ -12,6 +13,7 @@ const {
   fetchAllProductsByAdmin,
   productSearch,
   scanProductByBarcode,
+  updateStockCount,
 } = require("../controllers/productController");
 
 // ==============================
@@ -27,12 +29,15 @@ router.put("/:id", updateProductDetails);
 // Delete Product
 router.delete("/:id", deleteProductById);
 
+// Update Stock & Location
+router.put("/:productId/stock", authenticate, updateStockCount);
+
 // ==============================
 // Product Listing
 // ==============================
 
 // Fetch all products (Customer / Store)
-router.get("/", fetchAllProducts);
+router.get("/", authenticate, fetchAllProducts);
 
 // Fetch all products (Admin)
 router.get("/admin", fetchAllProductsByAdmin);
@@ -45,10 +50,10 @@ router.get("/list", fetchProducts);
 // ==============================
 
 // Search by name / sku / barcode
-router.get("/search", productSearch);
+router.get("/search", authenticate, productSearch);
 
 // Scan barcode (POS)
-router.get("/scan/:barcode", scanProductByBarcode);
+router.get("/scan/:barcode", authenticate, scanProductByBarcode);
 
 // ==============================
 // Product Details

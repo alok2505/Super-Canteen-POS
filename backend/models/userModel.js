@@ -133,7 +133,7 @@ var userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function() {
   if (this.role === 'WarehouseManager' && this.franchiseId) {
     const Franchise = mongoose.model('Franchise');
     const franchise = await Franchise.findById(this.franchiseId);
@@ -145,7 +145,6 @@ userSchema.pre('save', async function(next) {
       throw new Error('WarehouseManager must be assigned to a Warehouse franchise');
     }
   }
-  next();
 });
 
 var User = mongoose.model("User", userSchema);

@@ -10,6 +10,7 @@ import { previewBill } from "../services/ProductApi";
 function POS() {
   const [cart, setCart] = useState([]);
   const [bill, setBill] = useState(null);
+  const [billError, setBillError] = useState("");
   const location = useLocation();
 
   const [resumeHoldBill, setResumeHoldBill] = useState(null);
@@ -32,6 +33,7 @@ function POS() {
   useEffect(() => {
     if (cart.length === 0) {
       setBill(null);
+      setBillError("");
       return;
     }
 
@@ -43,6 +45,7 @@ function POS() {
       const items = cart.map((item) => ({
         barcode: item.barcode,
         quantity: item.quantity,
+        location: item.location,
       }));
 
       const response = await previewBill(items);
@@ -53,6 +56,8 @@ function POS() {
       });
     } catch (error) {
       console.log(error);
+      setBill(null);
+      setBillError(error.response?.data?.message || "Unable to calculate the bill. Please check the product stock.");
     }
   };
 
@@ -122,6 +127,12 @@ function POS() {
 
         <div className="w-[70%] p-4 flex flex-col gap-4">
           <SearchBar onProductScanned={handleProductScanned} />
+
+          {billError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {billError}
+            </div>
+          )}
 
           <BillingTable
             cart={cart}

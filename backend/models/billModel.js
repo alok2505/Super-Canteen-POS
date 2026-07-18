@@ -11,6 +11,12 @@ const billItemSchema = new mongoose.Schema({
   mrp: Number,
   sellingPrice: Number,
   total: Number,
+  location: {
+    section: String,
+    rack: String,
+    shelf: String,
+    bin: String
+  },
 });
 
 const billSchema = new mongoose.Schema(

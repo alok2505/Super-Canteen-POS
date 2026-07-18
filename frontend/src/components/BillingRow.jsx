@@ -47,6 +47,17 @@ function BillingRow({
                 <span>| {item.size}</span>
               )}
 
+              {item.location && (item.location.section || item.location.rack || item.location.shelf || item.location.bin) && (
+                <span className="text-blue-600 font-medium">
+                  | Location: {[
+                    item.location.section && `Section ${item.location.section}`,
+                    item.location.rack && `Rack ${item.location.rack}`,
+                    item.location.shelf && `Shelf ${item.location.shelf}`,
+                    item.location.bin && `Bin ${item.location.bin}`
+                  ].filter(Boolean).join(" → ")}
+                </span>
+              )}
+
             </div>
 
           </div>

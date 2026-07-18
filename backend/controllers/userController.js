@@ -3,27 +3,27 @@ var asyncHandler = require("../middlewares/asyncHandler.js");
 var bcrypt = require("bcryptjs");
 var createToken = require("../utils/createToken.js");
 const transporter = require("../config/nodemailer.js");
-const { generateOTP, sendOTP } = require("../utils/otpService.js");
+// const { generateOTP, sendOTP } = require("../utils/otpService.js");
 const validator = require("validator");
-const XLSX = require("xlsx");
+// const XLSX = require("xlsx");
 const fs = require("fs");
-const Category = require("../models/categoryModel.js");
-const SubCategory = require("../models/subCategorySchema.js");
-const Segment = require("../models/segmentSchema.js");
-const Brand = require("../models/brand.js");
+// const Category = require("../models/categoryModel.js");
+// const SubCategory = require("../models/subCategorySchema.js");
+// const Segment = require("../models/segmentSchema.js");
+// const Brand = require("../models/brand.js");
 const Product = require("../models/productModel.js");
-const { generateSmsOtp, sendOtpSms } = require("../utils/sms.service.js");
-const Franchise    = require('../models/franchiseSchema.js');
+// const { generateSmsOtp, sendOtpSms } = require("../utils/sms.service.js");
+const Franchise    = require('../models/franchiseModel.js');
 
 
 
 var createUser = asyncHandler(async function (req, res) {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, contactNo } = req.body;
 
     // Validation to check required fields
-    if (!username || !email || !password) {
-      throw new Error("Please fill all the required inputs");
+    if (!username || !email || !password || !contactNo) {
+      throw new Error("Please fill all the required inputs, including contact number.");
     }
     // Check if the user already exists
     const userExists = await User.findOne({ email });
@@ -44,6 +44,7 @@ var createUser = asyncHandler(async function (req, res) {
       userId,
       username,
       email,
+      contactNo,
       password: hashedPassword,
       role: "Customer",
     });
@@ -60,8 +61,7 @@ var createUser = asyncHandler(async function (req, res) {
       token,
     });
   } catch (error) {
-    res.status(500);
-    throw new Error(error.message || "Something Went Wrong While SignUp!");
+    res.status(500).json({ success: false, message: error.message || "Something Went Wrong While SignUp!" });
   }
 });
 
@@ -2339,12 +2339,12 @@ const deleteAddress = async (req, res) => {
   }
 };
 const moment = require("moment");
-const OTPRequest = require("../models/OTPRequest.js");
-const { default: mongoose } = require("mongoose");
+// const OTPRequest = require("../models/OTPRequest.js");
 const { getNextUserId } = require("../utils/getNextUserId.js");
+const { default: mongoose } = require("mongoose");
 const path = require("path");
 const { overlayInventory } = require("./productController.js");
-const { resolveStore } = require("../utils/storeRouter.js");
+// const { resolveStore } = require("../utils/storeRouter.js");
 
 const deleteUsersImportedToday = async (req, res) => {
   try {
