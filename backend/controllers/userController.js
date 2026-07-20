@@ -474,8 +474,8 @@ var logoutCurrentUser = asyncHandler(async function (req, res) {
 // version - 1.2
 var getAllUsers = asyncHandler(async function (req, res) {
   try {
-    const page   = parseInt(req.query.page);
-    const limit  = parseInt(req.query.limit);
+    const page   = parseInt(req.query.page)  || 1;
+    const limit  = parseInt(req.query.limit) || 100;
     const skip   = (page - 1) * limit;
     const search = req.query.search?.trim() || '';
     const role   = req.query.role           || '';   // ✅ role from query

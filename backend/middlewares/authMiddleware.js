@@ -24,14 +24,30 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-const requireRole = (role) => {
+const requireRole = (...roles) => {
   return (req, res, next) => {
-    if (req.user && req.user.role === role) {
+    if (req.user && roles.includes(req.user.role)) {
       next();
     } else {
-      res.status(403).json({ message: `Not authorized as an ${role}` });
+      res.status(403).json({ message: `Not authorized for this action` });
     }
   };
 };
 
-module.exports = { authenticate, requireRole };
+const requireActiveFranchise = async (req, res, next) => {
+  const franchiseRoles = ["StoreManager", "InventoryStaff", "PackingStaff"];
+  if (!franchiseRoles.includes(req.user?.role)) return next();
+
+  if (!req.user.franchiseId) {
+    return res.status(403).json({ message: "No franchise is assigned to this account." });
+  }
+
+  const Franchise = require("../models/franchiseModel");
+  const franchise = await Franchise.findById(req.user.franchiseId).select("status").lean();
+  if (!franchise || franchise.status !== "Active") {
+    return res.status(403).json({ message: "This franchise is inactive. Stock changes, staff changes, and sales are disabled." });
+  }
+  next();
+};
+
+module.exports = { authenticate, requireRole, requireActiveFranchise };

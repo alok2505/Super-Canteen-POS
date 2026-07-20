@@ -26,6 +26,8 @@ const billRoutes = require("./routes/billRoutes");
 const holdBillRoutes = require("./routes/holdBillRoutes");
 const userRoutes = require("./routes/userRoutes");
 const franchiseRoutes = require("./routes/franchiseRoutes");
+const masterProductRoutes = require("./routes/masterProductRoutes");
+const franchiseInventoryRoutes = require("./routes/franchiseInventoryRoutes");
 
 
 app.use("/api/products",productRoutes);
@@ -34,6 +36,8 @@ app.use("/api/bills", billRoutes);
 app.use("/api/hold-bills", holdBillRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/franchises", franchiseRoutes);
+app.use("/api/master-products", masterProductRoutes);
+app.use("/api/franchise-inventory", franchiseInventoryRoutes);
 
 // Default Route
 app.get("/", (req, res) => {

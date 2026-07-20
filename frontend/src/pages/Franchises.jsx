@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import { getFranchises, createFranchise, deleteFranchise, toggleFranchiseStatus } from "../services/franchiseApi";
-import { getAllUsers } from "../services/authApi";
+import { createStaffUser, getAllUsers } from "../services/authApi";
 
 function Franchises() {
   const [franchises, setFranchises] = useState([]);
   const [users, setUsers] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showManagerModal, setShowManagerModal] = useState(false);
+  const [managerSaving, setManagerSaving] = useState(false);
+  const [managerForm, setManagerForm] = useState({
+    username: "", email: "", contactNo: "", password: "",
+  });
   const [formData, setFormData] = useState({
     name: "",
     contactNo: "",
@@ -26,7 +31,7 @@ function Franchises() {
         getAllUsers()
       ]);
       setFranchises(franchiseRes.data.franchises || []);
-      setUsers(userRes.data.users || []);
+      setUsers(userRes.data.users || userRes.data.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -77,6 +82,22 @@ function Franchises() {
     }
   };
 
+  const handleCreateManager = async (e) => {
+    e.preventDefault();
+    try {
+      setManagerSaving(true);
+      await createStaffUser({ ...managerForm, role: "StoreManager" });
+      setManagerForm({ username: "", email: "", contactNo: "", password: "" });
+      setShowManagerModal(false);
+      await loadData();
+      setShowModal(true);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to create Store Manager");
+    } finally {
+      setManagerSaving(false);
+    }
+  };
+
   const handleToggle = async (id) => {
     try {
       await toggleFranchiseStatus(id);
@@ -92,12 +113,20 @@ function Franchises() {
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Franchises</h1>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
-        >
-          + Add Franchise
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowManagerModal(true)}
+            className="bg-slate-800 text-white px-4 py-2 rounded-lg font-semibold hover:bg-slate-900"
+          >
+            + Create Store Manager
+          </button>
+          <button 
+            onClick={() => setShowModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700"
+          >
+            + Add Franchise
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -169,6 +198,37 @@ function Franchises() {
               <div className="flex gap-2 justify-end mt-6">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded font-semibold">Cancel</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700">Create</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showManagerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-2xl font-bold">Create Store Manager</h2>
+            <p className="mt-1 text-sm text-gray-600">Create the manager first, then assign them while creating the franchise.</p>
+            <form onSubmit={handleCreateManager} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium">Full name</label>
+                <input required value={managerForm.username} onChange={(e) => setManagerForm({ ...managerForm, username: e.target.value })} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Email</label>
+                <input required type="email" value={managerForm.email} onChange={(e) => setManagerForm({ ...managerForm, email: e.target.value })} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Contact number</label>
+                <input required inputMode="numeric" pattern="[0-9]{10}" value={managerForm.contactNo} onChange={(e) => setManagerForm({ ...managerForm, contactNo: e.target.value })} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Temporary password</label>
+                <input required minLength="6" type="password" value={managerForm.password} onChange={(e) => setManagerForm({ ...managerForm, password: e.target.value })} className="w-full border p-2 rounded" />
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <button type="button" onClick={() => setShowManagerModal(false)} className="px-4 py-2 bg-gray-200 rounded font-semibold">Cancel</button>
+                <button disabled={managerSaving} type="submit" className="px-4 py-2 bg-slate-800 text-white rounded font-semibold disabled:opacity-60">{managerSaving ? "Creating..." : "Create Manager"}</button>
               </div>
             </form>
           </div>

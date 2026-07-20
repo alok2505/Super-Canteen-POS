@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { authenticate } = require("../middlewares/authMiddleware");
+const { authenticate, requireActiveFranchise, requireRole } = require("../middlewares/authMiddleware");
 
 const {
   addProduct,
@@ -21,16 +21,16 @@ const {
 // ==============================
 
 // Create Product
-router.post("/", addProduct);
+router.post("/", authenticate, requireRole("Admin"), addProduct);
 
 // Update Product
-router.put("/:id", updateProductDetails);
+router.put("/:id", authenticate, requireRole("Admin"), updateProductDetails);
 
 // Delete Product
-router.delete("/:id", deleteProductById);
+router.delete("/:id", authenticate, requireRole("Admin"), deleteProductById);
 
 // Update Stock & Location
-router.put("/:productId/stock", authenticate, updateStockCount);
+router.put("/:productId/stock", authenticate, requireActiveFranchise, requireRole("StoreManager", "InventoryStaff"), updateStockCount);
 
 // ==============================
 // Product Listing

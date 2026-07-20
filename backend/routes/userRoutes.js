@@ -42,7 +42,7 @@ const {
 
 // const { createContactMessage, getAllContactMessages, deleteMultipleContactMessages } = require("../controllers/contactUs.js");
 
-const { authenticate, requireRole} = require("../middlewares/authMiddleware.js");
+const { authenticate, requireRole, requireActiveFranchise } = require("../middlewares/authMiddleware.js");
 const roleMiddleware = require("../middlewares/roleMiddleware.js");
 
 // ------------------------------------
@@ -74,7 +74,7 @@ router.post("/save-token", authenticate, saveUserToken); // Save FCM token
 // ------------------------------------
 // 👥 Admin: User Management
 // ------------------------------------
-router.post("/add-user", authenticate, requireRole("Admin","StoreManager"), addUser);
+router.post("/add-user", authenticate, requireActiveFranchise, requireRole("Admin","StoreManager"), addUser);
 router.patch("/user/approve", authenticate, requireRole("Admin","StoreManager"), approveUser);
 router.get("/getLoginApprovalRequests", authenticate, requireRole("Admin","StoreManager"), getLoginApprovalRequests);
 

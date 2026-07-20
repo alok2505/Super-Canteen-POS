@@ -1,6 +1,7 @@
 const { default: mongoose } = require("mongoose");
 const asyncHandler = require("../middlewares/asyncHandler.js");
 const Product = require("../models/productModel.js");
+const FranchiseInventory = require("../models/franchiseInventoryModel.js");
 // const SlabRequest = require("../models/slabRequest.js");
 const moment = require("moment-timezone");
 // const brand = require("../models/brand.js");
@@ -196,6 +197,7 @@ const moment = require("moment-timezone");
 //new as per franchize modal
 const addProduct = asyncHandler(async (req, res) => {
   try {
+    const fields = req.fields || req.body || {};
     const {
       name,
       description,
@@ -221,55 +223,45 @@ const addProduct = asyncHandler(async (req, res) => {
       minQuantity,
       maxQuantity,
       productType,
-    } = req.fields;
+    } = fields;
 
     const role = req.user?.role;
+    const franchiseId = req.user?.franchiseId;
+    if (role !== "StoreManager" || !franchiseId) {
+      return res.status(403).json({ success: false, message: "Only an assigned Store Manager can add products." });
+    }
 
-    //Testing
-
-    // ── StoreManager cannot create products ──────────────────────────────────
-    // if (role !== "Admin") {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Only Admin can create products. Use inventory management to activate products for your store.",
-    //   });
-    // }
-
-    const imageUrls = Object.keys(req.fields)
+    const imageUrls = Array.isArray(fields.images) ? fields.images : Object.keys(fields)
       .filter((key) => key.startsWith("imageUrls"))
-      .map((key) => req.fields[key]);
-    if (!imageUrls.length)
-      return res
-        .status(400)
-        .json({ error: "At least one image URL is required" });
+      .map((key) => fields[key]);
 
-    const productCoupons = Object.keys(req.fields)
+    const productCoupons = Object.keys(fields)
       .filter((key) => key.startsWith("coupons["))
-      .map((key) => req.fields[key]);
-    const tags = Object.keys(req.fields)
+      .map((key) => fields[key]);
+    const tags = Object.keys(fields)
       .filter((key) => key.startsWith("tags["))
-      .map((key) => req.fields[key]);
-    const keywords = Object.keys(req.fields)
+      .map((key) => fields[key]);
+    const keywords = Object.keys(fields)
       .filter((key) => key.startsWith("keywords["))
-      .map((key) => req.fields[key]);
+      .map((key) => fields[key]);
 
     let color = null;
-    if (req.fields.color) {
+    if (fields.color) {
       try {
         color =
-          typeof req.fields.color === "string"
-            ? JSON.parse(req.fields.color)
-            : req.fields.color;
+          typeof fields.color === "string"
+            ? JSON.parse(fields.color)
+            : fields.color;
         color.name = color.name || "";
         color.code = color.code || "";
       } catch {
         color = null;
       }
     }
-    const size = req.fields.size || null;
+    const size = fields.size || null;
 
-    const variantsRaw = req.fields.variants
-      ? JSON.parse(req.fields.variants)
+    const variantsRaw = fields.variants
+      ? (typeof fields.variants === "string" ? JSON.parse(fields.variants) : fields.variants)
       : [];
     let colorVariants = [];
     let flatVariants = [];
@@ -311,13 +303,13 @@ const addProduct = asyncHandler(async (req, res) => {
     }
 
     const attributes = [];
-    for (const key in req.fields) {
+    for (const key in fields) {
       const match = key.match(/attributes\[(\d+)\]\[(.+)\]/);
       if (match) {
         const index = match[1];
         const field = match[2];
         if (!attributes[index]) attributes[index] = {};
-        attributes[index][field] = req.fields[key];
+        attributes[index][field] = fields[key];
       }
     }
     const cleanedAttributes = attributes.filter(
@@ -349,15 +341,27 @@ const addProduct = asyncHandler(async (req, res) => {
     //     : [],
     // }));
 
-    const franchiseInventories = []; //testing
+    const franchiseInventories = [{
+      franchiseId,
+      mrp: Number(mrp) || 0,
+      offerPrice: Number(offerPrice) || 0,
+      countInStock: Number(countInStock) || 0,
+      lowStockThreshold: Number(lowStockThreshold) || 10,
+      minOrderQuantity: Number(minQuantity) || 1,
+      maxOrderQuantity: Number(maxQuantity) || null,
+      outOfStock: Number(countInStock) <= 0,
+      isEnable: Number(countInStock) > 0,
+      flatVariants,
+      colorVariants,
+    }];
 
     const product = new Product({
       name,
       description,
       mrp: Number(mrp) || 0,
       offerPrice: Number(offerPrice) || 0,
-      sku: req.fields.sku || undefined,
-      barcode: req.fields.barcode || undefined,
+      sku: fields.sku || undefined,
+      barcode: fields.barcode || undefined,
       countInStock: Number(countInStock) || 0,
       category,
       subCategory: mongoose.Types.ObjectId.isValid(subCategory)
@@ -390,7 +394,7 @@ const addProduct = asyncHandler(async (req, res) => {
       hasVariants: colorVariants.length > 0 || flatVariants.length > 0,
       attributes: cleanedAttributes,
       productType,
-      // franchiseInventories, // ✅ all stores linked
+      franchiseInventories,
     });
 
     await product.save();
@@ -1844,9 +1848,14 @@ const fetchAllProducts = asyncHandler(async (req, res) => {
     if (subCategory) searchQuery.subCategory = subCategory;
     if (segment) searchQuery.segment = segment;
 
-    // Public/store listings only show enabled sellable inventory. Admin needs to
-    // see zero-stock entries too, so they can add the first stock to a store.
-    if (franchiseId && role !== "Admin") {
+    // A franchise user must never see the master catalog. Store staff see all
+    // products assigned to their own franchise (including zero stock) while
+    // customers see only enabled, sellable stock.
+    if (franchiseId && ["StoreManager", "InventoryStaff"].includes(role)) {
+      searchQuery.franchiseInventories = {
+        $elemMatch: { franchiseId: new mongoose.Types.ObjectId(franchiseId) },
+      };
+    } else if (franchiseId && role !== "Admin") {
       searchQuery.franchiseInventories = {
         $elemMatch: {
           franchiseId: new mongoose.Types.ObjectId(franchiseId),
@@ -5011,8 +5020,12 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     const franchiseId =
       req.user?.franchiseId?.toString() || req.query.franchiseId || null;
 
-    // Fetch complete product
-    const product = await Product.findOne({
+    // A store can override a variant barcode, so look in its own inventory
+    // first. Fall back to the master barcode for single products.
+    const inventoryMatch = franchiseId
+      ? await FranchiseInventory.findOne({ franchiseId, barcode, quantity: { $gt: 0 }, isActive: true }).lean()
+      : null;
+    const product = await Product.findOne(inventoryMatch ? { _id: inventoryMatch.productId } : {
       $or: [
         { barcode },
         { "flatVariants.barcode": barcode },
@@ -5029,6 +5042,28 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "No product found.",
+      });
+    }
+
+    // Separate franchise inventory is the only inventory used by POS scans.
+    if (franchiseId) {
+      const batches = await FranchiseInventory.find(inventoryMatch ? { franchiseId, productId: product._id, barcode, quantity: { $gt: 0 }, isActive: true } : { franchiseId, productId: product._id, quantity: { $gt: 0 }, isActive: true }).sort({ expiryDate: 1, createdAt: 1 }).lean();
+      const inventory = batches[0];
+      if (!inventory) {
+        return res.status(404).json({ success: false, message: "This product is not in your franchise inventory." });
+      }
+      const totalStock = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+      return res.json({
+        success: true,
+        message: "Barcode scanned successfully.",
+        scannedVariant: {
+          productId: product._id, masterVariantId: inventory.masterVariantId,
+          productType: inventory.masterVariantId ? "Variant" : "Single", name: product.name,
+          image: product.images?.[0] || "", barcode: barcode, sku: product.sku,
+          color: inventory.color, size: inventory.size,
+          mrp: product.mrp, offerPrice: inventory.sellingPrice, countInStock: totalStock,
+          location: inventory.location, tax: product.tax || 0,
+        },
       });
     }
 

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { authenticate, requireActiveFranchise, requireRole } = require("../middlewares/authMiddleware");
 
 const {
     saveHoldBill,
@@ -8,12 +9,12 @@ const {
     deleteHoldBill,
 } = require("../controllers/holdBillController");
 
-router.post("/", saveHoldBill);
+router.post("/", authenticate, requireActiveFranchise, requireRole("StoreManager"), saveHoldBill);
 
-router.get("/", getHoldBills);
+router.get("/", authenticate, requireActiveFranchise, getHoldBills);
 
-router.get("/:id", getHoldBillById);
+router.get("/:id", authenticate, requireActiveFranchise, getHoldBillById);
 
-router.delete("/:id", deleteHoldBill);
+router.delete("/:id", authenticate, requireActiveFranchise, deleteHoldBill);
 
 module.exports = router;

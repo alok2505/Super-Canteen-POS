@@ -10,6 +10,8 @@ import HoldBills from "./pages/HoldBills";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Franchises from "./pages/Franchises";
+import Staff from "./pages/Staff";
+import Catalog from "./pages/Catalog";
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem("token");
@@ -17,6 +19,11 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   return children;
+};
+
+const StoreManagerRoute = ({ children }) => {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  return user?.role === "StoreManager" ? children : <Navigate to="/products" replace />;
 };
 
 function App() {
@@ -29,12 +36,14 @@ function App() {
             </ProtectedRoute>
           }>
             <Route path="/" element={<Navigate to="/pos" />} />
-            <Route path="/pos" element={<POS />} />
+            <Route path="/pos" element={<StoreManagerRoute><POS /></StoreManagerRoute>} />
             <Route path="/products" element={<Products />} />
             <Route path="/bills" element={<Bills />} />
             <Route path="/bills/:id" element={<BillDetails />} />
             <Route path="/hold-bills" element={<HoldBills />} />
             <Route path="/franchises" element={<Franchises />} />
+            <Route path="/staff" element={<Staff />} />
+            <Route path="/catalog" element={<StoreManagerRoute><Catalog /></StoreManagerRoute>} />
           </Route>
 
           {/* Public Auth Routes */}

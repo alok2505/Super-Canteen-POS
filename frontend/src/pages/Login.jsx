@@ -16,7 +16,17 @@ function Login({ setAuth }) {
       // Assume the backend returns token and user info
       // Check for token in response
       const token = res.data.token || (res.data.data && res.data.data.token) || res.data.accessToken;
-      const user = res.data.user || res.data.data;
+      // Password login returns the user fields at the top level, while some
+      // older endpoints wrap them in `user` or `data`.
+      const user = res.data.user || res.data.data ||
+        (res.data.role ? {
+          _id: res.data._id,
+          username: res.data.username,
+          email: res.data.email,
+          contactNo: res.data.contactNo,
+          role: res.data.role,
+          franchiseId: res.data.franchiseId,
+        } : null);
       
       if (token) {
         localStorage.setItem("token", token);

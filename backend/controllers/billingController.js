@@ -1,6 +1,7 @@
 const asyncHandler = require("../middlewares/asyncHandler");
 const Product = require("../models/productModel");
 const Bill = require("../models/billModel");
+const FranchiseInventory = require("../models/franchiseInventoryModel");
 
 const generateNextBillNo = async () => {
   const lastBill = await Bill.findOne().sort({ createdAt: -1 }).lean();
@@ -47,7 +48,11 @@ const previewBill = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: "Each cart item needs a barcode and a positive quantity." });
     }
 
-    const product = await Product.findOne({
+    const franchiseId = req.user?.franchiseId?.toString();
+    const inventoryByVariantBarcode = franchiseId
+      ? await FranchiseInventory.findOne({ franchiseId, $or: [{ barcode }, { "variants.barcode": barcode }] }).lean()
+      : null;
+    const product = await Product.findOne(inventoryByVariantBarcode ? { _id: inventoryByVariantBarcode.productId } : {
       $or: [
         { barcode },
         { "flatVariants.barcode": barcode },
@@ -60,6 +65,33 @@ const previewBill = asyncHandler(async (req, res) => {
         success: false,
         message: `Product not found for barcode ${barcode}`,
       });
+    }
+
+    // New multi-franchise inventory is stored separately from the master
+    // catalog. A manager can bill only their own inventory record.
+    if (franchiseId) {
+      const inventory = inventoryByVariantBarcode || await FranchiseInventory.findOne({ franchiseId, productId: product._id }).lean();
+      if (!inventory || !inventory.isActive) {
+        return res.status(400).json({ success: false, message: `${product.name} is not available in this franchise.` });
+      }
+      const storeVariant = inventory.variants?.find((variant) => variant.barcode === barcode);
+      if (!storeVariant && inventory.barcode !== barcode && product.barcode !== barcode) return res.status(400).json({ success: false, message: "This barcode is not configured for this franchise." });
+      const availableStock = storeVariant?.stock ?? inventory.stock;
+      if (Number(quantity) > availableStock) {
+        return res.status(400).json({ success: false, message: `${product.name} has only ${availableStock} item(s) left in stock.` });
+      }
+      const masterVariant = storeVariant && ([...(product.flatVariants || []), ...(product.colorVariants || []).flatMap((color) => color.sizes || [])].find((variant) => variant._id.toString() === storeVariant.masterVariantId));
+      const mrp = Number(masterVariant?.mrp ?? product.mrp ?? 0);
+      const price = Number(storeVariant?.sellingPrice ?? inventory.sellingPrice);
+      const mrpTotal = mrp * Number(quantity);
+      const sellingTotal = price * Number(quantity);
+      grossAmount += mrpTotal;
+      sellingAmount += sellingTotal;
+      totalSavings += mrpTotal - sellingTotal;
+      totalItems++;
+      totalQuantity += Number(quantity);
+      billItems.push({ productId: product._id, inventoryId: inventory._id, inventoryVariantId: storeVariant?._id, name: product.name, image: product.images?.[0] || "", barcode, sku: product.sku || "", color: storeVariant?.color, size: storeVariant?.size, quantity: Number(quantity), mrp, sellingPrice: price, mrpTotal, sellingTotal, saving: mrpTotal - sellingTotal, stock: availableStock, location: storeVariant?.location || inventory.location });
+      continue;
     }
 
     let mrp = 0;
@@ -136,10 +168,10 @@ const previewBill = asyncHandler(async (req, res) => {
     }
 
     // Store staff sell from their own franchise inventory, not the master stock.
-    const franchiseId = req.user?.franchiseId?.toString();
-    if (franchiseId) {
+    const legacyFranchiseId = req.user?.franchiseId?.toString();
+    if (legacyFranchiseId) {
       const inventory = product.franchiseInventories?.find(
-        (entry) => entry.franchiseId?.toString() === franchiseId,
+        (entry) => entry.franchiseId?.toString() === legacyFranchiseId,
       );
       if (!inventory || !inventory.isEnable) {
         return res.status(400).json({ success: false, message: `${product.name} is not enabled for this franchise.` });

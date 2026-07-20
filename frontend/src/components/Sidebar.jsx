@@ -6,6 +6,8 @@ import {
   FaFileInvoice,
   FaTimes,
   FaStore,
+  FaUsers,
+  FaList,
   FaSignOutAlt,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -15,6 +17,7 @@ function Sidebar({ collapsed, onToggle }) {
   const userRaw = localStorage.getItem("user");
   const user = userRaw ? JSON.parse(userRaw) : null;
   const isAdmin = user?.role === "Admin";
+  const isStoreManager = user?.role === "StoreManager";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -44,7 +47,7 @@ function Sidebar({ collapsed, onToggle }) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-2 p-3">
-        <NavLink
+        {!isAdmin && <NavLink
           to="/pos"
           className={({ isActive }) =>
             `${baseLinkClass} ${isActive ? "bg-slate-800" : ""}`
@@ -52,7 +55,7 @@ function Sidebar({ collapsed, onToggle }) {
         >
           <FaCashRegister className="shrink-0" />
           {!collapsed && <span>POS</span>}
-        </NavLink>
+        </NavLink>}
 
         <NavLink
           to="/products"
@@ -87,6 +90,18 @@ function Sidebar({ collapsed, onToggle }) {
             }>
               <FaStore className="shrink-0" />
               {!collapsed && <span>Franchises</span>}
+          </NavLink>
+        )}
+        {isStoreManager && (
+          <NavLink to="/catalog" className={({ isActive }) => `${baseLinkClass} ${isActive ? "bg-slate-800" : ""}`}>
+            <FaList className="shrink-0" />
+            {!collapsed && <span>Product Catalog</span>}
+          </NavLink>
+        )}
+        {isStoreManager && (
+          <NavLink to="/staff" className={({ isActive }) => `${baseLinkClass} ${isActive ? "bg-slate-800" : ""}`}>
+            <FaUsers className="shrink-0" />
+            {!collapsed && <span>My Staff</span>}
           </NavLink>
         )}
       </nav>

@@ -46,31 +46,23 @@ const franchiseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-franchiseSchema.pre('save', async function(next) {
-  // 🔥 FIX: Check if document is new AND code is still empty
+// Mongoose 9 uses promise-based middleware here. Do not accept/call `next` in
+// an async hook; doing so can produce "next is not a function" on save.
+franchiseSchema.pre('save', async function() {
+  // Generate a code only for a new franchise that does not already have one.
   if (this.isNew && !this.code) {
-    try {
-      console.log('🔥 Generating code for:', this.address.city); // DEBUG
-      
-      const city = this.address.city.toUpperCase().replace(/[^A-Z]/g, '');
-      let counter = 1;
-      
-      // 🔥 OPTIMIZED: Use findOne instead of countDocuments loop
-      while (true) {
-        const existing = await mongoose.model('Franchise').findOne({ 
-          code: `${city}-${counter.toString().padStart(3, '0')}`
-        });
-        
-        if (!existing) {
-          this.code = `${city}-${counter.toString().padStart(3, '0')}`;
-          console.log('✅ Generated code:', this.code); // DEBUG
-          break;
-        }
-        counter++;
+    const city = this.address.city.toUpperCase().replace(/[^A-Z]/g, '') || 'STORE';
+    let counter = 1;
+
+    while (true) {
+      const existing = await mongoose.model('Franchise').exists({
+        code: `${city}-${counter.toString().padStart(3, '0')}`,
+      });
+      if (!existing) {
+        this.code = `${city}-${counter.toString().padStart(3, '0')}`;
+        break;
       }
-    } catch (error) {
-      console.error('❌ Code generation failed:', error);
-      return next(error);
+      counter++;
     }
   }
 
@@ -91,7 +83,6 @@ franchiseSchema.pre('save', async function(next) {
       throw new Error('PhysicalStore/DarkStore must have a StoreManager as manager');
     }
   }
-  next();
 });
 
 

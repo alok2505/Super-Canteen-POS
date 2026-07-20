@@ -1,25 +1,6 @@
 var asyncHandler = require("../middlewares/asyncHandler.js");
 var Franchise    = require('../models/franchiseModel.js');
 var User         = require('../models/userModel');
-var Product      = require('../models/productModel');
-
-const inventoryFromProduct = (product, franchiseId) => ({
-  franchiseId,
-  mrp: product.mrp || 0,
-  offerPrice: product.offerPrice || 0,
-  minOrderQuantity: product.minOrderQuantity || 1,
-  maxOrderQuantity: product.maxOrderQuantity,
-  countInStock: 0,
-  lowStockThreshold: product.lowStockThreshold || 10,
-  outOfStock: true,
-  isEnable: false,
-  // Each franchise starts at zero and receives its own independent variant stock.
-  flatVariants: (product.flatVariants || []).map((variant) => ({ ...variant.toObject(), countInStock: 0 })),
-  colorVariants: (product.colorVariants || []).map((color) => ({
-    ...color.toObject(),
-    sizes: color.sizes.map((size) => ({ ...size.toObject(), countInStock: 0 })),
-  })),
-});
 
 // ─── Create Franchise ────────────────────────────────────────────────────────
 var createFranchise = asyncHandler(async (req, res) => {
@@ -111,20 +92,6 @@ var createFranchise = asyncHandler(async (req, res) => {
 
   managerUser.franchiseId = franchise._id;
   await managerUser.save();
-
-  // Give the new franchise an independent, disabled inventory record for every
-  // existing catalog product. Stock is entered later from Products.
-  const products = await Product.find({}).select(
-    "mrp offerPrice minOrderQuantity maxOrderQuantity countInStock lowStockThreshold flatVariants colorVariants",
-  );
-  if (products.length) {
-    await Product.bulkWrite(products.map((product) => ({
-      updateOne: {
-        filter: { _id: product._id, "franchiseInventories.franchiseId": { $ne: franchise._id } },
-        update: { $push: { franchiseInventories: inventoryFromProduct(product, franchise._id) } },
-      },
-    })));
-  }
 
   res.status(201).json({
     success: true,

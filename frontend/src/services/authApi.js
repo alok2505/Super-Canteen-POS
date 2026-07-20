@@ -12,6 +12,10 @@ export const getAllUsers = () => {
   return api.get("/users/getAllUsers");
 };
 
+export const createStaffUser = (userData) => {
+  return api.post("/users/add-user", userData);
+};
+
 export const logoutUser = () => {
   return api.post("/users/logout");
 };

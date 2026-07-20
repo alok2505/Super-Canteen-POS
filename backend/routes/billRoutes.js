@@ -1,6 +1,7 @@
 const express = require("express");
 
 const router = express.Router();
+const { authenticate, requireActiveFranchise, requireRole } = require("../middlewares/authMiddleware");
 
 const {
   saveBill,
@@ -9,12 +10,12 @@ const {
   deleteBill,
 } = require("../controllers/billController");
 
-router.post("/", saveBill);
+router.post("/", authenticate, requireActiveFranchise, requireRole("StoreManager"), saveBill);
 
-router.get("/", getBills);
+router.get("/", authenticate, requireActiveFranchise, getBills);
 
-router.get("/:id", getBillById);
+router.get("/:id", authenticate, requireActiveFranchise, getBillById);
 
-router.delete("/:id", deleteBill);
+router.delete("/:id", authenticate, requireActiveFranchise, deleteBill);
 
 module.exports = router;
