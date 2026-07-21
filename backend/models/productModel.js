@@ -178,8 +178,8 @@ const productSchema = new mongoose.Schema(
       flatVariants: { type: Array, default: [] },
       colorVariants: { type: Array, default: [] },
     },
-    //new:multiStore
-    franchiseInventories: [franchiseInventorySchema],
+    //new:multiStore (Migrated to separate FranchiseInventory collection)
+    // franchiseInventories: [franchiseInventorySchema],
   },
   { timestamps: true },
 );
@@ -219,26 +219,7 @@ productSchema.pre("save", function () {
   }
 
   // ── Franchise inventories: outOfStock calc per store ─────────────────────
-  // ✅ ADDED — recalculate outOfStock for each franchise inventory entry
-  if (Array.isArray(this.franchiseInventories)) {
-    this.franchiseInventories.forEach((inv) => {
-      if (this.productType === "Single") {
-        inv.outOfStock = (inv.countInStock || 0) === 0;
-      } else if (this.productType === "WeightPack") {
-        inv.outOfStock =
-          Array.isArray(inv.flatVariants) && inv.flatVariants.length > 0
-            ? inv.flatVariants.every((v) => (v.countInStock || 0) === 0)
-            : (inv.countInStock || 0) === 0;
-      } else if (this.productType === "ColorSize") {
-        inv.outOfStock =
-          Array.isArray(inv.colorVariants) && inv.colorVariants.length > 0
-            ? inv.colorVariants.every((cv) =>
-                cv.sizes.every((s) => (s.countInStock || 0) === 0),
-              )
-            : (inv.countInStock || 0) === 0;
-      }
-    });
-  }
+  // (Migrated to separate FranchiseInventory collection, so this is no longer needed here)
 
   
 });

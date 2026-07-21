@@ -36,27 +36,48 @@ const saveBill = asyncHandler(async (req, res) => {
   const franchiseId = req.user?.franchiseId;
   if (!franchiseId) return res.status(403).json({ success: false, message: "A franchise assignment is required to save a bill." });
 
-  // Decrease the separate franchise stock atomically. A stale cart cannot sell
-  // more than the store actually has.
   for (const item of items) {
-    const isVariant = Boolean(item.inventoryVariantId);
-    const result = await FranchiseInventory.findOneAndUpdate(
-      isVariant
-        ? { franchiseId, productId: item.productId, variants: { $elemMatch: { _id: item.inventoryVariantId, stock: { $gte: Number(item.quantity) } } } }
-        : { franchiseId, productId: item.productId, stock: { $gte: Number(item.quantity) } },
-      isVariant
-        ? { $inc: { "variants.$.stock": -Number(item.quantity) } }
-        : { $inc: { stock: -Number(item.quantity) } },
-      { new: true },
-    );
-    if (!result) return res.status(400).json({ success: false, message: `${item.name || "Product"} no longer has enough stock.` });
-    if (isVariant) {
-      const variant = result.variants.id(item.inventoryVariantId);
-      variant.history.push({ action: "SOLD", quantityChange: -Number(item.quantity), previousStock: variant.stock + Number(item.quantity), newStock: variant.stock, performedBy: req.user._id });
-    } else {
-      result.history.push({ action: "SOLD", quantityChange: -Number(item.quantity), previousStock: result.stock + Number(item.quantity), newStock: result.stock, performedBy: req.user._id });
+    let remainingQuantity = Number(item.quantity);
+    
+    const batches = await FranchiseInventory.find({
+      franchiseId,
+      barcode: item.barcode,
+      isActive: true,
+      quantity: { $gt: 0 }
+    }).sort({ expiryDate: 1, createdAt: 1 });
+
+    const totalStock = batches.reduce((sum, b) => sum + b.quantity, 0);
+    if (remainingQuantity > totalStock) {
+      return res.status(400).json({ success: false, message: `${item.name || "Product"} no longer has enough stock.` });
     }
-    await result.save();
+
+    for (const batch of batches) {
+      if (remainingQuantity <= 0) break;
+
+      const deductAmount = Math.min(batch.quantity, remainingQuantity);
+      
+      const updatedBatch = await FranchiseInventory.findOneAndUpdate(
+        { _id: batch._id, quantity: { $gte: deductAmount } },
+        { $inc: { quantity: -deductAmount } },
+        { new: true }
+      );
+
+      if (!updatedBatch) {
+        return res.status(400).json({ success: false, message: `Stock for ${item.name || "Product"} was updated during checkout. Please try again.` });
+      }
+
+      updatedBatch.history.push({
+        action: "SOLD",
+        quantityChange: -deductAmount,
+        previousQuantity: updatedBatch.quantity + deductAmount,
+        newQuantity: updatedBatch.quantity,
+        note: `Sold in bill`,
+        performedBy: req.user._id
+      });
+      await updatedBatch.save();
+
+      remainingQuantity -= deductAmount;
+    }
   }
 
   let finalBillNo = billNo;

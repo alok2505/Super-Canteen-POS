@@ -49,10 +49,11 @@ const previewBill = asyncHandler(async (req, res) => {
     }
 
     const franchiseId = req.user?.franchiseId?.toString();
-    const inventoryByVariantBarcode = franchiseId
-      ? await FranchiseInventory.findOne({ franchiseId, $or: [{ barcode }, { "variants.barcode": barcode }] }).lean()
-      : null;
-    const product = await Product.findOne(inventoryByVariantBarcode ? { _id: inventoryByVariantBarcode.productId } : {
+    const batches = franchiseId
+      ? await FranchiseInventory.find({ franchiseId, barcode, isActive: true }).sort({ expiryDate: 1, createdAt: 1 }).lean()
+      : [];
+
+    const product = await Product.findOne(batches.length > 0 ? { _id: batches[0].productId } : {
       $or: [
         { barcode },
         { "flatVariants.barcode": barcode },
@@ -67,30 +68,50 @@ const previewBill = asyncHandler(async (req, res) => {
       });
     }
 
-    // New multi-franchise inventory is stored separately from the master
-    // catalog. A manager can bill only their own inventory record.
     if (franchiseId) {
-      const inventory = inventoryByVariantBarcode || await FranchiseInventory.findOne({ franchiseId, productId: product._id }).lean();
-      if (!inventory || !inventory.isActive) {
+      if (batches.length === 0) {
         return res.status(400).json({ success: false, message: `${product.name} is not available in this franchise.` });
       }
-      const storeVariant = inventory.variants?.find((variant) => variant.barcode === barcode);
-      if (!storeVariant && inventory.barcode !== barcode && product.barcode !== barcode) return res.status(400).json({ success: false, message: "This barcode is not configured for this franchise." });
-      const availableStock = storeVariant?.stock ?? inventory.stock;
+
+      const availableStock = batches.reduce((sum, batch) => sum + batch.quantity, 0);
       if (Number(quantity) > availableStock) {
         return res.status(400).json({ success: false, message: `${product.name} has only ${availableStock} item(s) left in stock.` });
       }
-      const masterVariant = storeVariant && ([...(product.flatVariants || []), ...(product.colorVariants || []).flatMap((color) => color.sizes || [])].find((variant) => variant._id.toString() === storeVariant.masterVariantId));
+
+      // The first active batch that we would theoretically deduct from
+      const firstActiveBatch = batches.find(b => b.quantity > 0) || batches[0];
+      
+      const masterVariant = firstActiveBatch.masterVariantId && ([...(product.flatVariants || []), ...(product.colorVariants || []).flatMap((color) => color.sizes || [])].find((variant) => variant._id.toString() === firstActiveBatch.masterVariantId));
+      
       const mrp = Number(masterVariant?.mrp ?? product.mrp ?? 0);
-      const price = Number(storeVariant?.sellingPrice ?? inventory.sellingPrice);
+      const price = Number(firstActiveBatch.sellingPrice);
+      
       const mrpTotal = mrp * Number(quantity);
       const sellingTotal = price * Number(quantity);
+      
       grossAmount += mrpTotal;
       sellingAmount += sellingTotal;
       totalSavings += mrpTotal - sellingTotal;
       totalItems++;
       totalQuantity += Number(quantity);
-      billItems.push({ productId: product._id, inventoryId: inventory._id, inventoryVariantId: storeVariant?._id, name: product.name, image: product.images?.[0] || "", barcode, sku: product.sku || "", color: storeVariant?.color, size: storeVariant?.size, quantity: Number(quantity), mrp, sellingPrice: price, mrpTotal, sellingTotal, saving: mrpTotal - sellingTotal, stock: availableStock, location: storeVariant?.location || inventory.location });
+      
+      billItems.push({ 
+        productId: product._id, 
+        name: product.name, 
+        image: product.images?.[0] || "", 
+        barcode, 
+        sku: product.sku || "", 
+        color: firstActiveBatch.color, 
+        size: firstActiveBatch.size, 
+        quantity: Number(quantity), 
+        mrp, 
+        sellingPrice: price, 
+        mrpTotal, 
+        sellingTotal, 
+        saving: mrpTotal - sellingTotal, 
+        stock: availableStock, 
+        location: firstActiveBatch.location 
+      });
       continue;
     }
 
@@ -108,12 +129,10 @@ const previewBill = asyncHandler(async (req, res) => {
     // -----------------------------
     // Single Product
     // -----------------------------
-
     if (product.barcode === barcode) {
       mrp = product.mrp;
       price = product.offerPrice;
       stock = product.countInStock;
-
       sku = product.sku;
       size = product.size;
       matched = true;
@@ -122,18 +141,15 @@ const previewBill = asyncHandler(async (req, res) => {
     // -----------------------------
     // Weight Pack
     // -----------------------------
-
     if (!matched) {
       for (const variant of product.flatVariants || []) {
         if (variant.barcode === barcode) {
           mrp = variant.mrp;
           price = variant.offerPrice;
           stock = variant.countInStock;
-
           sku = variant.sku;
           size = variant.size;
           matched = true;
-
           break;
         }
       }
@@ -142,7 +158,6 @@ const previewBill = asyncHandler(async (req, res) => {
     // -----------------------------
     // Color Size
     // -----------------------------
-
     if (!matched) {
       outer:
       for (const c of product.colorVariants || []) {
@@ -151,12 +166,10 @@ const previewBill = asyncHandler(async (req, res) => {
             mrp = s.mrp;
             price = s.offerPrice;
             stock = s.countInStock;
-
             sku = s.sku;
             size = s.size;
             color = c.name;
             matched = true;
-
             break outer;
           }
         }
@@ -167,42 +180,6 @@ const previewBill = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: `Product variant not found for barcode ${barcode}` });
     }
 
-    // Store staff sell from their own franchise inventory, not the master stock.
-    const legacyFranchiseId = req.user?.franchiseId?.toString();
-    if (legacyFranchiseId) {
-      const inventory = product.franchiseInventories?.find(
-        (entry) => entry.franchiseId?.toString() === legacyFranchiseId,
-      );
-      if (!inventory || !inventory.isEnable) {
-        return res.status(400).json({ success: false, message: `${product.name} is not enabled for this franchise.` });
-      }
-
-      if (product.barcode === barcode) {
-        mrp = inventory.mrp;
-        price = inventory.offerPrice;
-        stock = inventory.countInStock;
-      } else {
-        const flatVariant = inventory.flatVariants?.find((variant) => variant.barcode === barcode);
-        if (flatVariant) {
-          mrp = flatVariant.mrp;
-          price = flatVariant.offerPrice;
-          stock = flatVariant.countInStock;
-        } else {
-          let storeSize;
-          for (const storeColor of inventory.colorVariants || []) {
-            storeSize = storeColor.sizes?.find((entry) => entry.barcode === barcode);
-            if (storeSize) break;
-          }
-          if (!storeSize) {
-            return res.status(400).json({ success: false, message: `${product.name} is not configured for this franchise.` });
-          }
-          mrp = storeSize.mrp;
-          price = storeSize.offerPrice;
-          stock = storeSize.countInStock;
-        }
-      }
-    }
-
     if (quantity > stock) {
       return res.status(400).json({
         success: false,
@@ -211,51 +188,31 @@ const previewBill = asyncHandler(async (req, res) => {
     }
 
     const mrpTotal = mrp * quantity;
-
     const sellingTotal = price * quantity;
-
     const saving = mrpTotal - sellingTotal;
 
     grossAmount += mrpTotal;
-
     sellingAmount += sellingTotal;
-
     totalSavings += saving;
-
     totalItems++;
-
     totalQuantity += quantity;
 
     billItems.push({
       productId: product._id,
-
       name: product.name,
-
       image,
-
       barcode,
-
       sku,
-
       color,
-
       size,
-
       quantity,
-
       mrp,
-
       sellingPrice: price,
-
       mrpTotal,
-
       sellingTotal,
-
       saving,
-
       stock,
-
-      location,
+      location: null,
     });
   }
 
