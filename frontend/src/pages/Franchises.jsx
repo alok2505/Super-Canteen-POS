@@ -68,7 +68,7 @@ function Franchises() {
     name: "",
     contactNo: "",
     manager: "",
-    address: { address: "", city: "", state: "", postalCode: "" },
+    address: { address: "", city: "", state: "", postalCode: "", currentLocation: { lat: "", lng: "" } },
   });
 
   // Create manager form
@@ -111,7 +111,16 @@ function Franchises() {
   // Handle form field changes (supports nested address.*)
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name.startsWith("address.")) {
+    if (name.startsWith("address.currentLocation.")) {
+      const field = name.split(".")[2];
+      setFormData((f) => ({
+        ...f,
+        address: {
+          ...f.address,
+          currentLocation: { ...f.address.currentLocation, [field]: value },
+        },
+      }));
+    } else if (name.startsWith("address.")) {
       const field = name.split(".")[1];
       setFormData((f) => ({ ...f, address: { ...f.address, [field]: value } }));
     } else {
@@ -125,7 +134,7 @@ function Franchises() {
     try {
       await createFranchise(formData);
       setActiveModal(null);
-      setFormData({ name: "", contactNo: "", manager: "", address: { address: "", city: "", state: "", postalCode: "" } });
+      setFormData({ name: "", contactNo: "", manager: "", address: { address: "", city: "", state: "", postalCode: "", currentLocation: { lat: "", lng: "" } } });
       await loadData();
       showAlert("success", "Franchise created successfully.");
     } catch (err) {
@@ -382,6 +391,14 @@ function Franchises() {
               </Field>
               <Field label="Postal Code">
                 <input required className={inputClass} type="text" name="address.postalCode" value={formData.address.postalCode} onChange={handleChange} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Latitude">
+                <input required className={inputClass} type="number" step="any" name="address.currentLocation.lat" value={formData.address.currentLocation.lat} onChange={handleChange} placeholder="e.g. 28.7041" />
+              </Field>
+              <Field label="Longitude">
+                <input required className={inputClass} type="number" step="any" name="address.currentLocation.lng" value={formData.address.currentLocation.lng} onChange={handleChange} placeholder="e.g. 77.1025" />
               </Field>
             </div>
             <Field label="Assign Store Manager (optional)">
