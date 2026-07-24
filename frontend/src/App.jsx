@@ -27,6 +27,7 @@ import Register from "./pages/Register";
 import Franchises from "./pages/Franchises";
 import Staff from "./pages/Staff";
 import Catalog from "./pages/Catalog";
+import Dashboard from "./pages/Dashboard";
 
 // Helper: reads role from localStorage
 const getRole = () => JSON.parse(localStorage.getItem("user") || "null")?.role;
@@ -94,6 +95,7 @@ const BillingRoute = ({ children }) => {
 const RoleDefaultRedirect = () => {
   const role = getRole();
   if (role === "Admin") return <Navigate to="/franchises" replace />;
+  if (role === "StoreManager") return <Navigate to="/dashboard" replace />;
   return <Navigate to="/pos" replace />;
 };
 
@@ -132,6 +134,9 @@ function App() {
 
             {/* Catalog — Browse master products (StoreManager only) */}
             <Route path="/catalog" element={<StoreManagerRoute><Catalog /></StoreManagerRoute>} />
+
+            {/* Dashboard — Reports and Alerts (StoreManager only) */}
+            <Route path="/dashboard" element={<StoreManagerRoute><Dashboard /></StoreManagerRoute>} />
           </Route>
 
           {/* Public Auth Routes — accessible without a token */}

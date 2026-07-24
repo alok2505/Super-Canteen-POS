@@ -85,6 +85,8 @@ const previewBill = asyncHandler(async (req, res) => {
       
       const mrp = Number(masterVariant?.mrp ?? product.mrp ?? 0);
       const price = Number(firstActiveBatch.sellingPrice);
+      const purchasePrice = Number(firstActiveBatch.purchasePrice || 0);
+      const itemProfit = (price - purchasePrice) * Number(quantity);
       
       const mrpTotal = mrp * Number(quantity);
       const sellingTotal = price * Number(quantity);
@@ -105,10 +107,12 @@ const previewBill = asyncHandler(async (req, res) => {
         size: firstActiveBatch.size, 
         quantity: Number(quantity), 
         mrp, 
+        purchasePrice,
         sellingPrice: price, 
         mrpTotal, 
         sellingTotal, 
         saving: mrpTotal - sellingTotal, 
+        profit: itemProfit,
         stock: availableStock, 
         location: firstActiveBatch.location 
       });
@@ -207,10 +211,12 @@ const previewBill = asyncHandler(async (req, res) => {
       size,
       quantity,
       mrp,
+      purchasePrice: 0,
       sellingPrice: price,
       mrpTotal,
       sellingTotal,
       saving,
+      profit: 0,
       stock,
       location: null,
     });

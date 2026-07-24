@@ -36,6 +36,9 @@ const saveBill = asyncHandler(async (req, res) => {
   const franchiseId = req.user?.franchiseId;
   if (!franchiseId) return res.status(403).json({ success: false, message: "A franchise assignment is required to save a bill." });
 
+  const finalItems = [];
+  let totalBillProfit = 0;
+
   for (const item of items) {
     let remainingQuantity = Number(item.quantity);
     
@@ -76,6 +79,24 @@ const saveBill = asyncHandler(async (req, res) => {
       });
       await updatedBatch.save();
 
+      const purchasePrice = Number(batch.purchasePrice || 0);
+      const sellingPrice = Number(item.sellingPrice || batch.sellingPrice || 0);
+      const profit = (sellingPrice - purchasePrice) * deductAmount;
+
+      finalItems.push({
+        productId: item.productId,
+        name: item.name,
+        barcode: item.barcode,
+        quantity: deductAmount,
+        mrp: item.mrp,
+        purchasePrice,
+        sellingPrice,
+        total: sellingPrice * deductAmount,
+        profit,
+        location: item.location,
+      });
+
+      totalBillProfit += profit;
       remainingQuantity -= deductAmount;
     }
   }
@@ -103,7 +124,7 @@ const saveBill = asyncHandler(async (req, res) => {
     franchiseId,
     cashierId: req.user._id,
 
-    items,
+    items: finalItems,
 
     grossAmount,
 
@@ -118,6 +139,8 @@ const saveBill = asyncHandler(async (req, res) => {
     gst,
 
     netAmount,
+    
+    totalProfit: totalBillProfit,
 
     totalItems,
 
@@ -146,7 +169,16 @@ const saveBill = asyncHandler(async (req, res) => {
 // ===============================
 
 const getBills = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
   const query = req.user?.role === "Admin" ? {} : { franchiseId: req.user?.franchiseId };
+  
+  if (startDate && endDate) {
+    query.createdAt = {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    };
+  }
+
   const bills = await Bill.find(query).sort({
     createdAt: -1,
   });

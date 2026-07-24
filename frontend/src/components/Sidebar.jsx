@@ -80,6 +80,14 @@ function Sidebar({ collapsed, onToggle }) {
 
       <nav className="flex flex-1 flex-col gap-2 p-3">
 
+        {/* Dashboard — Reports and Alerts for StoreManager only */}
+        {isStoreManager && (
+          <NavLink to="/dashboard" className={({ isActive }) =>`${baseLinkClass} ${isActive ? "bg-indigo-600" : ""}`}>
+            <FaChartBar className="shrink-0" />
+            {!collapsed && <span>Dashboard</span>}
+          </NavLink>
+        )}
+
         {/* POS — for StoreManager and InventoryStaff only
             Admin manages the business and does not work the counter */}
         {isBillingUser && (

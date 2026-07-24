@@ -11,8 +11,10 @@ const billItemSchema = new mongoose.Schema({
   barcode: String,
   quantity: Number,
   mrp: Number,
+  purchasePrice: { type: Number, default: 0 },
   sellingPrice: Number,
   total: Number,
+  profit: { type: Number, default: 0 },
   location: {
     section: String,
     rack: String,
@@ -45,6 +47,8 @@ const billSchema = new mongoose.Schema(
     gst: Number,
 
     netAmount: Number,
+    
+    totalProfit: { type: Number, default: 0 },
 
     totalItems: Number,
 

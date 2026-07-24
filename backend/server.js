@@ -28,6 +28,7 @@ const userRoutes = require("./routes/userRoutes");
 const franchiseRoutes = require("./routes/franchiseRoutes");
 const masterProductRoutes = require("./routes/masterProductRoutes");
 const franchiseInventoryRoutes = require("./routes/franchiseInventoryRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 
 app.use("/api/products",productRoutes);
@@ -38,6 +39,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/franchises", franchiseRoutes);
 app.use("/api/master-products", masterProductRoutes);
 app.use("/api/franchise-inventory", franchiseInventoryRoutes);
+app.use("/api/reports", reportRoutes);
 
 // Default Route
 app.get("/", (req, res) => {

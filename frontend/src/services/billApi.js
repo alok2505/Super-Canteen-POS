@@ -17,8 +17,12 @@ export const saveBill = (billData) => {
   return api.post("/bills", billData);
 };
 
-export const getBills = () => {
-  return api.get("/bills");
+export const getBills = (startDate, endDate) => {
+  const params = new URLSearchParams();
+  if (startDate) params.append("startDate", startDate);
+  if (endDate) params.append("endDate", endDate);
+  
+  return api.get("/bills", { params });
 };
 
 export const getBillById = (id) => {
