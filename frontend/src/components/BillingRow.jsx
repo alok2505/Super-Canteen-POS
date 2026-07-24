@@ -10,7 +10,8 @@ function BillingRow({
   onDecrease,
   onRemove,
 }) {
-  const total = item.offerPrice * item.quantity;
+  const price = item.offerPrice ?? item.sellingPrice ?? 0;
+  const total = price * item.quantity;
 
   return (
     <tr className="border-b hover:bg-slate-50 transition">
@@ -79,7 +80,7 @@ function BillingRow({
       <td className="text-center">
 
         <input
-          value={item.offerPrice}
+          value={price}
           readOnly
           className="w-20 border rounded-lg text-center py-1"
         />

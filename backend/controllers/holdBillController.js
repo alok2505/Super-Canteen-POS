@@ -34,7 +34,16 @@ const saveHoldBill = asyncHandler(async (req, res) => {
     });
   }
 
+  const franchiseId = req.user?.franchiseId;
+  if (!franchiseId) {
+    return res.status(403).json({
+      success: false,
+      message: "A franchise assignment is required to save a hold bill.",
+    });
+  }
+
   const holdBill = await HoldBill.create({
+    franchiseId,
     customerName,
     customerMobile,
     items,
@@ -67,7 +76,8 @@ const saveHoldBill = asyncHandler(async (req, res) => {
 // =====================================
 
 const getHoldBills = asyncHandler(async (req, res) => {
-  const holdBills = await HoldBill.find().sort({
+  const query = req.user?.role === "Admin" ? {} : { franchiseId: req.user?.franchiseId };
+  const holdBills = await HoldBill.find(query).sort({
     createdAt: -1,
   });
 

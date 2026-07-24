@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const holdBillSchema = new mongoose.Schema(
   {
+    franchiseId: { type: mongoose.Schema.Types.ObjectId, ref: "Franchise", index: true },
     customerName: {
       type: String,
       default: "Walk-in",
