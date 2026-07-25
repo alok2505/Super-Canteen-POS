@@ -32,9 +32,6 @@ function Dashboard() {
     }
   };
 
-  if (loading) {
-    return <div className="p-8 text-center text-slate-500">Loading Dashboard...</div>;
-  }
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
@@ -52,10 +49,14 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <h2 className="text-xl font-bold mb-4 text-slate-700 flex items-center gap-2">
-        <FaCalendarAlt className="text-indigo-500" /> Performance Overview ({timeLabel})
-      </h2>
+      {loading ? (
+        <div className="text-center text-slate-500 py-12 text-lg font-medium">Loading Dashboard Data...</div>
+      ) : (
+        <>
+          {/* Stats Cards */}
+          <h2 className="text-xl font-bold mb-4 text-slate-700 flex items-center gap-2">
+            <FaCalendarAlt className="text-indigo-500" /> Performance Overview ({timeLabel})
+          </h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
           <div className="bg-blue-100 p-4 rounded-xl text-blue-600">
@@ -131,6 +132,8 @@ function Dashboard() {
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -12,7 +12,10 @@ const findMasterVariant = (product, masterVariantId) => {
 };
 
 const listMyInventory = asyncHandler(async (req, res) => {
-  const batches = await FranchiseInventory.find({ franchiseId: franchiseIdFor(req) })
+  const franchiseId = req.user.role === 'Admin' ? req.query.franchiseId : franchiseIdFor(req);
+  if (!franchiseId) return res.status(400).json({ success: false, message: "Franchise ID is required" });
+
+  const batches = await FranchiseInventory.find({ franchiseId })
     .populate("productId", "name barcode sku mrp images productType")
     .sort({ expiryDate: 1, createdAt: -1 }).lean();
   res.json({ success: true, batches: batches.filter((batch) => batch.productId) });

@@ -28,6 +28,9 @@ import Franchises from "./pages/Franchises";
 import Staff from "./pages/Staff";
 import Catalog from "./pages/Catalog";
 import Dashboard from "./pages/Dashboard";
+import LocationLookup from "./pages/LocationLookup";
+import Stock from "./pages/Stock";
+import Batches from "./pages/Batches";
 
 // Helper: reads role from localStorage
 const getRole = () => JSON.parse(localStorage.getItem("user") || "null")?.role;
@@ -85,6 +88,17 @@ const BillingRoute = ({ children }) => {
 };
 
 // ------------------------------------------------------------
+// InventoryViewRoute
+// ------------------------------------------------------------
+// Restricts access to inventory viewing pages: /inventory/*
+// ------------------------------------------------------------
+const InventoryViewRoute = ({ children }) => {
+  const role = getRole();
+  const allowedRoles = ["Admin", "StoreManager", "InventoryStaff", "PackingStaff"];
+  return allowedRoles.includes(role) ? children : <Navigate to="/" replace />;
+};
+
+// ------------------------------------------------------------
 // RoleDefaultRedirect
 // ------------------------------------------------------------
 // Sends each role to their correct home page after login.
@@ -137,6 +151,11 @@ function App() {
 
             {/* Dashboard — Reports and Alerts (StoreManager only) */}
             <Route path="/dashboard" element={<StoreManagerRoute><Dashboard /></StoreManagerRoute>} />
+
+            {/* Inventory Module */}
+            <Route path="/inventory/stock" element={<InventoryViewRoute><Stock /></InventoryViewRoute>} />
+            <Route path="/inventory/batches" element={<InventoryViewRoute><Batches /></InventoryViewRoute>} />
+            <Route path="/inventory/location" element={<InventoryViewRoute><LocationLookup /></InventoryViewRoute>} />
           </Route>
 
           {/* Public Auth Routes — accessible without a token */}

@@ -20,6 +20,9 @@ import {
   FaSignOutAlt,
   FaUserCircle,
   FaChartBar,
+  FaBoxes,
+  FaChevronDown,
+  FaChevronUp,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -30,17 +33,25 @@ function Sidebar({ collapsed, onToggle }) {
   const userRaw = localStorage.getItem("user");
   const user = userRaw ? JSON.parse(userRaw) : null;
 
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+
   // Derive boolean flags so nav conditions read like plain English below
   const isAdmin = user?.role === "Admin";
   const isStoreManager = user?.role === "StoreManager";
 
   // InventoryStaff — daily billing operator (cashier at the counter)
   const isInventoryStaff = user?.role === "InventoryStaff";
+  
+  // PackingStaff - packing operations
+  const isPackingStaff = user?.role === "PackingStaff";
 
   // isBillingUser — true for StoreManager and InventoryStaff
   // Used to show POS / Bills / Hold Bills links
   // Admin is intentionally excluded: Admin manages the business, not the counter
   const isBillingUser = isStoreManager || isInventoryStaff;
+  
+  // Inventory view access
+  const canViewInventory = isAdmin || isStoreManager || isInventoryStaff || isPackingStaff;
 
   // ------------------------------------------------------------
   // handleLogout
@@ -130,7 +141,7 @@ function Sidebar({ collapsed, onToggle }) {
         )}
 
         {/* Products — Admin sees master catalogue; StoreManager sees their inventory */}
-        {!isInventoryStaff && (
+        {!isInventoryStaff && !isPackingStaff && (
           <NavLink
             to="/products"
             className={({ isActive }) => isActive ? activeLinkClass : baseLinkClass}
@@ -138,6 +149,40 @@ function Sidebar({ collapsed, onToggle }) {
             <FaBox className="shrink-0" />
             {!collapsed && <span>Products</span>}
           </NavLink>
+        )}
+
+        {/* Inventory Submenu */}
+        {canViewInventory && (
+          <div className="flex flex-col">
+            <button
+              onClick={() => setInventoryOpen(!inventoryOpen)}
+              className={`${baseLinkClass} w-full justify-between`}
+            >
+              <div className="flex items-center gap-3">
+                <FaBoxes className="shrink-0" />
+                {!collapsed && <span>Inventory</span>}
+              </div>
+              {!collapsed && (
+                <div className="text-slate-400">
+                  {inventoryOpen ? <FaChevronUp className="h-3 w-3" /> : <FaChevronDown className="h-3 w-3" />}
+                </div>
+              )}
+            </button>
+            {/* Expanded items */}
+            {!collapsed && inventoryOpen && (
+              <div className="mt-1 flex flex-col gap-1 pl-10 pr-2">
+                <NavLink to="/inventory/stock" className={({ isActive }) => `${baseLinkClass} py-2 text-xs ${isActive ? "bg-indigo-600/80" : ""}`}>
+                  Stock
+                </NavLink>
+                <NavLink to="/inventory/batches" className={({ isActive }) => `${baseLinkClass} py-2 text-xs ${isActive ? "bg-indigo-600/80" : ""}`}>
+                  Batches
+                </NavLink>
+                <NavLink to="/inventory/location" className={({ isActive }) => `${baseLinkClass} py-2 text-xs ${isActive ? "bg-indigo-600/80" : ""}`}>
+                  Location Lookup
+                </NavLink>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Product Catalog — StoreManager only

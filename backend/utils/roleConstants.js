@@ -43,7 +43,7 @@ const INVENTORY_WRITE_ROLES = [ADMIN, STORE_MANAGER];
 // INVENTORY_VIEW_ROLES — who can VIEW inventory (read-only)
 // Admin monitors inventory across ALL franchises for reporting.
 // StoreManager and InventoryStaff view inventory within their own franchise.
-const INVENTORY_VIEW_ROLES = [ADMIN, STORE_MANAGER, INVENTORY_STAFF];
+const INVENTORY_VIEW_ROLES = [ADMIN, STORE_MANAGER, INVENTORY_STAFF, PACKING_STAFF];
 
 // ADMIN_AND_MANAGER — useful for user-management and reporting routes where
 // both Admin (globally) and StoreManager (within their franchise) have access
