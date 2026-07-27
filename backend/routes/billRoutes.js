@@ -33,7 +33,18 @@ const {
   getBills,
   getBillById,
   deleteBill,
+  previewBill,
 } = require("../controllers/billController");
+
+// POST /bills/preview
+// Previews bill calculation before finalizing.
+router.post(
+  "/preview",
+  authenticate,
+  requireActiveFranchise,
+  requireRole(...BILLING_ROLES),
+  previewBill
+);
 
 // POST /bills
 // Saves a completed bill after payment is processed.

@@ -1,13 +1,18 @@
 import { useState, useEffect } from "react";
-import { FaMoneyBillWave, FaCreditCard, FaMobileAlt } from "react-icons/fa";
+import { FaMoneyBillWave, FaCreditCard, FaMobileAlt, FaSearch, FaUserPlus, FaTag, FaStar } from "react-icons/fa";
 import { saveBill } from "../services/billApi";
 import { saveHoldBill, deleteHoldBill } from "../services/holdBillApi";
+import { getCustomers, createOrUpdateCustomer } from "../services/customerApi";
 
-function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearResumeHoldBill }) {
+function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearResumeHoldBill, customerId, setCustomerId, couponCode, setCouponCode }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerName, setCustomerName] = useState("Walk-in");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerPaid, setCustomerPaid] = useState("");
+  const [customerData, setCustomerData] = useState(null); // Full customer object
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
 
   useEffect(() => {
     if (resumeHoldBill) {
@@ -44,6 +49,7 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
       const res = await saveHoldBill({
         customerName: customerName.trim() || "Walk-in",
         customerMobile: customerMobile.trim(),
+        customerId,
         items: bill.items,
         grossAmount: bill.grossAmount,
         sellingAmount: bill.sellingAmount,
@@ -55,6 +61,8 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
         totalItems: bill.totalItems,
         totalQuantity: bill.totalQuantity,
         billNo: bill?.billNo || resumeHoldBill?.billNo,
+        appliedOffers: bill?.appliedOffers || [],
+        totalSavings: bill?.totalSavings || bill?.savings || 0,
         paymentMode,
         customerPaid: Number(customerPaid),
         changeReturned: Number(customerPaid) - bill.netAmount,
@@ -117,6 +125,9 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
         billNo: bill?.billNo,
         customerName: customerName.trim() || "Walk-in",
         customerMobile: customerMobile.trim(),
+        customerId,
+        appliedOffers: bill?.appliedOffers || [],
+        totalSavings: bill?.totalSavings || bill?.savings || 0,
         paymentMode,
         customerPaid: paidAmount,
         changeReturned: paidAmount - bill.netAmount,
@@ -134,6 +145,9 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
         setCustomerMobile("");
         setCustomerPaid("");
         setPaymentMode("Cash");
+        setCustomerData(null);
+        setShowNewCustomerForm(false);
+        setCouponInput("");
         if (clearResumeHoldBill) clearResumeHoldBill();
       } else {
         alert(response?.data?.message || "Unable to save bill.");
@@ -142,6 +156,47 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
       console.log(error);
       alert(error?.response?.data?.message || "Unable to save bill.");
     }
+  };
+
+  const handleCustomerSearch = async () => {
+    if (!customerMobile.trim()) return;
+    try {
+      setIsSearchingCustomer(true);
+      const res = await getCustomers("", customerMobile);
+      const cust = res.data.customers?.[0];
+      if (cust) {
+        setCustomerData(cust);
+        setCustomerName(cust.username);
+        if (setCustomerId) setCustomerId(cust._id);
+        setShowNewCustomerForm(false);
+      } else {
+        setCustomerData(null);
+        if (setCustomerId) setCustomerId(null);
+        setShowNewCustomerForm(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearchingCustomer(false);
+    }
+  };
+
+  const handleCreateCustomer = async () => {
+    try {
+      const res = await createOrUpdateCustomer({
+        contactNo: customerMobile,
+        username: customerName
+      });
+      setCustomerData(res.data.customer);
+      if (setCustomerId) setCustomerId(res.data.customer._id);
+      setShowNewCustomerForm(false);
+    } catch (err) {
+      alert("Failed to create customer");
+    }
+  };
+
+  const applyCoupon = () => {
+    if (setCouponCode) setCouponCode(couponInput);
   };
 
   return (
@@ -158,13 +213,23 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
 
       {/* Body */}
 
-      <div className="flex-1 p-5 space-y-4">
-        <Row title="Gross Amount" value={grossAmount} />
+      <div className="flex-1 p-5 space-y-4 overflow-y-auto max-h-[50vh]">
+        <Row title="Subtotal" value={bill?.subtotal || 0} />
+        
+        {bill?.appliedOffers && bill.appliedOffers.length > 0 && (
+          <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
+            <p className="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Applied Offers</p>
+            {bill.appliedOffers.map((o, idx) => (
+              <div key={idx} className="flex justify-between text-sm text-indigo-700 mb-1">
+                <span><FaTag className="inline mr-1"/> {o.name}</span>
+                {o.discountAmount > 0 && <span className="font-bold">-₹{o.discountAmount.toFixed(2)}</span>}
+                {o.freeProductId && <span className="font-bold">FREE ITEM</span>}
+              </div>
+            ))}
+          </div>
+        )}
 
-        <Row title="Discount" value={discount} />
-
-        <Row title="GST" value={gst} />
-        <Row title="Savings" value={bill?.savings || 0} green />
+        <Row title="Total Savings" value={bill?.totalSavings || 0} green />
 
         <hr />
 
@@ -214,31 +279,68 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
           </div>
         </div>
 
-        {/* Customer Name */}
-
+        {/* Coupon Code */}
         <div>
-          <label className="font-semibold">Customer Name / Walk-in</label>
-
-          <input
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Walk-in"
-            className="w-full mt-2 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <label className="font-semibold text-sm">Coupon Code</label>
+          <div className="flex mt-1">
+            <input
+              value={couponInput}
+              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+              placeholder="e.g. WELCOME100"
+              className="w-full border rounded-l-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm uppercase"
+            />
+            <button onClick={applyCoupon} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-r-lg font-medium text-sm transition">
+              Apply
+            </button>
+          </div>
+          {couponCode && <p className="text-xs text-green-600 mt-1 font-medium">Applied: {couponCode}</p>}
         </div>
 
-        {/* Customer Mobile */}
+        <hr />
 
+        {/* Customer Section */}
         <div>
-          <label className="font-semibold">Mobile Number</label>
-
-          <input
-            value={customerMobile}
-            onChange={(e) => setCustomerMobile(e.target.value)}
-            placeholder="e.g. 9876543210"
-            className="w-full mt-2 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <label className="font-semibold text-sm">Customer Mobile</label>
+          <div className="flex mt-1">
+            <input
+              value={customerMobile}
+              onChange={(e) => setCustomerMobile(e.target.value)}
+              placeholder="e.g. 9876543210"
+              className="w-full border rounded-l-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+            <button onClick={handleCustomerSearch} disabled={isSearchingCustomer} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 rounded-r-lg font-medium transition">
+              <FaSearch />
+            </button>
+          </div>
         </div>
+
+        {customerData && (
+          <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-sm mt-3">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-bold text-blue-800">{customerData.username}</span>
+              {customerData.isFrequent && <FaStar className="text-amber-500" title="Frequent Customer" />}
+            </div>
+            <div className="flex justify-between text-blue-600 text-xs">
+              <span>Visits: {customerData.totalVisits}</span>
+              <span>Spent: ₹{customerData.totalSpent?.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
+        {showNewCustomerForm && !customerData && (
+          <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm space-y-2 mt-3">
+            <p className="text-xs font-bold text-slate-500">NEW CUSTOMER</p>
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Customer Name"
+              className="w-full border rounded p-2 outline-none"
+            />
+            <button onClick={handleCreateCustomer} className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-medium flex justify-center items-center gap-2">
+              <FaUserPlus /> Save & Select
+            </button>
+          </div>
+        )}
 
         {/* Customer Paid */}
 

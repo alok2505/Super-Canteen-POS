@@ -15,6 +15,8 @@ const billItemSchema = new mongoose.Schema({
   sellingPrice: Number,
   total: Number,
   profit: { type: Number, default: 0 },
+  returnedQty: { type: Number, default: 0 },
+  batchNumber: String,
   location: {
     section: String,
     rack: String,
@@ -54,6 +56,12 @@ const billSchema = new mongoose.Schema(
 
     totalQuantity: Number,
 
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     customerName: {
       type: String,
       default: "Walk-in",
@@ -61,6 +69,18 @@ const billSchema = new mongoose.Schema(
 
     customerMobile: {
       type: String,
+    },
+
+    appliedOffers: [{
+      offerId: { type: mongoose.Schema.Types.ObjectId, ref: "Offer" },
+      name: { type: String },
+      discountAmount: { type: Number, default: 0 },
+      freeProductId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+    }],
+
+    totalSavings: {
+      type: Number,
+      default: 0,
     },
 
     paymentMode: {
@@ -76,6 +96,17 @@ const billSchema = new mongoose.Schema(
     cashier: {
       type: String,
       default: "Admin",
+    },
+
+    refundAmount: {
+      type: Number,
+      default: 0,
+    },
+
+    status: {
+      type: String,
+      enum: ["Completed", "Partially Returned", "Returned"],
+      default: "Completed",
     },
   },
   {

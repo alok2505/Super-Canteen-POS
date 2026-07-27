@@ -30,19 +30,24 @@ const masterProductRoutes = require("./routes/masterProductRoutes");
 const franchiseInventoryRoutes = require("./routes/franchiseInventoryRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const returnRoutes = require("./routes/returnRoutes");
+const customerRoutes = require("./routes/customerRoutes");
+const offerRoutes = require("./routes/offerRoutes");
 
 
 app.use("/api/products",productRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/bills", billRoutes);
-app.use("/api/hold-bills", holdBillRoutes);
+app.use("/api/returns", returnRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/offers", offerRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/franchises", franchiseRoutes);
 app.use("/api/master-products", masterProductRoutes);
 app.use("/api/franchise-inventory", franchiseInventoryRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/hold-bills", holdBillRoutes);
 app.use("/api/reports", reportRoutes);
-
 // Default Route
 app.get("/", (req, res) => {
   res.json({

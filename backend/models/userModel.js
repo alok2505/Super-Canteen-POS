@@ -58,6 +58,20 @@ var userSchema = new mongoose.Schema(
     },
     lastLogin: { type: Date, default: null }, // Track last login
 
+    // ==========================================
+    // CRM Fields (Used if role === "Customer")
+    // ==========================================
+    totalVisits: { type: Number, default: 0 },
+    totalPurchases: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 },
+    totalSavings: { type: Number, default: 0 },
+    lastVisit: { type: Date, default: null },
+    dob: { type: Date, default: null },
+    anniversary: { type: Date, default: null },
+    isFrequent: { type: Boolean, default: false },
+    loyaltyPoints: { type: Number, default: 0 },
+    // ==========================================
+
     shopName: {
       type: String,
     },

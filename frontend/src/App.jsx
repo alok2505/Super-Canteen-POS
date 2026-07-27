@@ -19,6 +19,7 @@ import MainLayout from "./layouts/MainLayout";
 
 import POS from "./pages/POS";
 import Bills from "./pages/Bills";
+import Returns from "./pages/Returns";
 import Products from "./pages/Products";
 import BillDetails from "./pages/BillDetails";
 import HoldBills from "./pages/HoldBills";
@@ -31,6 +32,9 @@ import Dashboard from "./pages/Dashboard";
 import LocationLookup from "./pages/LocationLookup";
 import Stock from "./pages/Stock";
 import Batches from "./pages/Batches";
+import Customers from "./pages/Customers";
+import CustomerDetails from "./pages/CustomerDetails";
+import Offers from "./pages/Offers";
 
 // Helper: reads role from localStorage
 const getRole = () => JSON.parse(localStorage.getItem("user") || "null")?.role;
@@ -133,6 +137,16 @@ function App() {
 
             {/* Bills — View / print completed bills (StoreManager + Staff) */}
             <Route path="/bills" element={<BillingRoute><Bills /></BillingRoute>} />
+            
+            {/* Returns — View all return history (StoreManager + Staff) */}
+            <Route path="/returns" element={<BillingRoute><Returns /></BillingRoute>} />
+
+            {/* Customers — View all customers (StoreManager + Staff) */}
+            <Route path="/customers" element={<BillingRoute><Customers /></BillingRoute>} />
+            <Route path="/customers/:id" element={<BillingRoute><CustomerDetails /></BillingRoute>} />
+
+            {/* Offers — Manage Coupons and Offers (Admin + StoreManager) */}
+            <Route path="/offers" element={<StoreManagerRoute><Offers /></StoreManagerRoute>} />
 
             {/* Bill Details — Full receipt view for a single bill */}
             <Route path="/bills/:id" element={<BillingRoute><BillDetails /></BillingRoute>} />

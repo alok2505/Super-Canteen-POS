@@ -7,8 +7,13 @@ function BillCard({ bill }) {
   return (
     <div className="bg-white rounded-xl shadow p-5 flex justify-between items-center">
       <div>
-        <h2 className="font-bold text-xl">
+        <h2 className="font-bold text-xl flex items-center gap-2">
           {bill.billNumber || bill.billNo || "N/A"}
+          {bill.status && bill.status !== "Completed" && (
+            <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-bold">
+              {bill.status}
+            </span>
+          )}
         </h2>
 
         <p>Customer : {bill.customerName || "Walk-in"}</p>

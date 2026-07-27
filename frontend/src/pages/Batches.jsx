@@ -182,7 +182,7 @@ function Batches() {
       {/* Top Section: Search */}
       <div className="mb-6 rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
         <div className="relative">
-          <FaSearch className="absolute left-4 top-3.5 text-slate-400" />
+          <FaSearch className="absolute left-4  top-3.5 text-slate-400" />
           <input
             type="text"
             placeholder="Search by Product Name, Barcode or Batch No..."

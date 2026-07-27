@@ -23,6 +23,9 @@ import {
   FaBoxes,
   FaChevronDown,
   FaChevronUp,
+  FaUndo,
+  FaUserFriends,
+  FaTags,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -122,12 +125,34 @@ function Sidebar({ collapsed, onToggle }) {
           </NavLink>
         )}
 
+        {/* Returns — for StoreManager and InventoryStaff */}
+        {isBillingUser && (
+          <NavLink
+            to="/returns"
+            className={({ isActive }) => isActive ? activeLinkClass : baseLinkClass}
+          >
+            <FaUndo className="shrink-0" />
+            {!collapsed && <span>Returns</span>}
+          </NavLink>
+        )}
+
         {/* Hold Bills — for StoreManager and InventoryStaff */}
         {isBillingUser && (
           <NavLink to="/hold-bills"
             className={({ isActive }) => isActive ? activeLinkClass : baseLinkClass}>
               <FaFileInvoice className="shrink-0" />
               {!collapsed && <span>Hold Bills</span>}
+          </NavLink>
+        )}
+
+        {/* Customers — for StoreManager and InventoryStaff */}
+        {isBillingUser && (
+          <NavLink
+            to="/customers"
+            className={({ isActive }) => isActive ? activeLinkClass : baseLinkClass}
+          >
+            <FaUserFriends className="shrink-0" />
+            {!collapsed && <span>Customers</span>}
           </NavLink>
         )}
 
@@ -192,6 +217,14 @@ function Sidebar({ collapsed, onToggle }) {
           <NavLink to="/catalog" className={({ isActive }) =>`${baseLinkClass} ${isActive ? "bg-indigo-600" : ""}`}>
             <FaList className="shrink-0" />
             {!collapsed && <span>Product Catalog</span>}
+          </NavLink>
+        )}
+
+        {/* Offers & Coupons — Admin and StoreManager */}
+        {(isAdmin || isStoreManager) && (
+          <NavLink to="/offers" className={({ isActive }) =>`${baseLinkClass} ${isActive ? "bg-indigo-600" : ""}`}>
+            <FaTags className="shrink-0" />
+            {!collapsed && <span>Coupons & Offers</span>}
           </NavLink>
         )}
 

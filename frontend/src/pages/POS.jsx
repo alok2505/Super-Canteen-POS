@@ -5,13 +5,20 @@ import Navbar from "../components/Navbar";
 import SearchBar from "../components/Searchbar";
 import BillingTable from "../components/BillingTable";
 import BillSummary from "../components/BillSummary";
+import ReturnMode from "../components/POS/ReturnMode";
 import { previewBill } from "../services/ProductApi";
 
 function POS() {
   const [cart, setCart] = useState([]);
   const [bill, setBill] = useState(null);
   const [billError, setBillError] = useState("");
+  const [customerId, setCustomerId] = useState(null);
+  const [couponCode, setCouponCode] = useState("");
   const location = useLocation();
+
+  const [activeTab, setActiveTab] = useState("Billing");
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const canReturn = user?.role === "Admin" || user?.role === "StoreManager" || user?.role === "InventoryStaff";
 
   const [resumeHoldBill, setResumeHoldBill] = useState(null);
 
@@ -38,7 +45,7 @@ function POS() {
     }
 
     calculateBill();
-  }, [cart]);
+  }, [cart, customerId, couponCode]);
 
   const calculateBill = async () => {
     try {
@@ -48,7 +55,11 @@ function POS() {
         location: item.location,
       }));
 
-      const response = await previewBill(items);
+      const response = await previewBill({
+        items,
+        customerId,
+        couponCode
+      });
 
       setBill({
         ...response.data.bill,
@@ -122,38 +133,63 @@ function POS() {
     <div className="h-screen bg-slate-100 flex flex-col">
       <Navbar billNo={bill?.billNo} />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* LEFT */}
+      {canReturn && (
+        <div className="bg-white border-b px-6 flex gap-6 shrink-0">
+          <button 
+            className={`py-3 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'Billing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setActiveTab('Billing')}
+          >
+            Billing
+          </button>
+          <button 
+            className={`py-3 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'Returns' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setActiveTab('Returns')}
+          >
+            Returns
+          </button>
+        </div>
+      )}
 
-        <div className="w-[70%] p-4 flex flex-col gap-4">
-          <SearchBar onProductScanned={handleProductScanned} />
+      <div className="flex flex-1 overflow-hidden p-4">
+        {activeTab === "Billing" ? (
+          <>
+            {/* LEFT */}
+            <div className="w-[70%] flex flex-col gap-4 pr-4 border-r border-slate-200">
+              <SearchBar onProductScanned={handleProductScanned} />
 
-          {billError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {billError}
+              {billError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {billError}
+                </div>
+              )}
+
+              <BillingTable
+                cart={cart}
+                onIncrease={increaseQuantity}
+                onDecrease={decreaseQuantity}
+                onRemove={removeProduct}
+              />
             </div>
-          )}
 
-          <BillingTable
-            cart={cart}
-            onIncrease={increaseQuantity}
-            onDecrease={decreaseQuantity}
-            onRemove={removeProduct}
-          />
-        </div>
-
-        {/* RIGHT */}
-
-        <div className="w-[30%] p-4">
-          <BillSummary 
-            bill={bill} 
-            cart={cart} 
-            clearCart={() => setCart([])}
-            clearBill={() => setBill(null)}
-            resumeHoldBill={resumeHoldBill}
-            clearResumeHoldBill={() => setResumeHoldBill(null)}
-          />
-        </div>
+            {/* RIGHT */}
+            <div className="w-[30%] pl-4">
+              <BillSummary 
+                bill={bill} 
+                cart={cart} 
+                clearCart={() => setCart([])}
+                clearBill={() => { setBill(null); setCustomerId(null); setCouponCode(""); }}
+                resumeHoldBill={resumeHoldBill}
+                clearResumeHoldBill={() => setResumeHoldBill(null)}
+                customerId={customerId}
+                setCustomerId={setCustomerId}
+                couponCode={couponCode}
+                setCouponCode={setCouponCode}
+              />
+            </div>
+          </>
+        ) : (
+          <ReturnMode />
+        )}
       </div>
     </div>
   );
