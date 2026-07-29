@@ -26,5 +26,10 @@ export const previewBill = (items, discount = 0) => {
     });
 };
 
+export const getProducts = () => {
+    // Assuming /products returns the list of products for the franchise/admin
+    return api.get("/");
+};
+
 
 

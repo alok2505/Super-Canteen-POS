@@ -1,7 +1,7 @@
 import { FaEye, FaTrash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
-function BillCard({ bill }) {
+function BillCard({ bill, onDelete }) {
   const navigate = useNavigate();
   console.log("BillCard bill:", bill);
   return (
@@ -46,7 +46,10 @@ function BillCard({ bill }) {
           <FaEye className="mx-auto" />
         </button>
 
-        <button className="bg-red-500 hover:bg-red-600 text-white w-12 h-12 rounded-lg">
+        <button 
+          onClick={() => onDelete && onDelete(bill._id)}
+          className="bg-red-500 hover:bg-red-600 text-white w-12 h-12 rounded-lg"
+        >
           <FaTrash className="mx-auto" />
         </button>
       </div>

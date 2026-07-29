@@ -3,6 +3,7 @@ const Bill = require("../models/billModel");
 const FranchiseInventory = require("../models/franchiseInventoryModel");
 const Offer = require("../models/offerModel");
 const User = require("../models/userModel");
+const Customer = require("../models/customerModel");
 
 // ===============================
 // Preview Bill (Rules Engine)
@@ -51,10 +52,61 @@ const previewBill = asyncHandler(async (req, res) => {
   let currentTotal = subtotal;
   let offerApplied = false;
 
+  let customerData = null;
+  const mongoose = require("mongoose");
+  if (customerId && mongoose.isValidObjectId(customerId)) {
+    customerData = await Customer.findById(customerId);
+  }
+
   // Process Offers
+  let couponMatchId = null;
+  if (couponCode) {
+    const match = activeOffers.find(o => o.code && o.code.toUpperCase() === couponCode.toUpperCase());
+    if (match) {
+      couponMatchId = match._id.toString();
+    }
+  }
+
+  let couponError = null;
+
   for (const offer of activeOffers) {
     // Basic checks
-    if (offer.conditions.minBillAmount > 0 && currentTotal < offer.conditions.minBillAmount) continue;
+    if (offer.conditions.minBillAmount > 0 && currentTotal < offer.conditions.minBillAmount) {
+      if (offer.code && couponCode?.toUpperCase() === offer.code.toUpperCase()) {
+        couponError = `Minimum bill amount for this coupon is ₹${offer.conditions.minBillAmount}.`;
+      }
+      continue;
+    }
+
+    // Customer Type check
+    if (offer.conditions.customerType && offer.conditions.customerType !== "All") {
+      let isEligible = false;
+      let failReason = "";
+      if (customerData) {
+        if (offer.conditions.customerType === "Frequent" && customerData.isFrequent) {
+          isEligible = true;
+        } else if (offer.conditions.customerType === "Frequent" && !customerData.isFrequent) {
+          failReason = "This coupon is only for Frequent Customers.";
+        } else if (offer.conditions.customerType === "New" && customerData.totalVisits === 0) {
+          isEligible = true;
+        } else if (offer.conditions.customerType === "New" && customerData.totalVisits > 0) {
+          failReason = "This coupon is only for First-Time Customers.";
+        }
+      } else {
+        // Unregistered / Walk-in is considered New
+        if (offer.conditions.customerType === "New") {
+           isEligible = true;
+        } else if (offer.conditions.customerType === "Frequent") {
+           failReason = "This coupon is only for Frequent Customers. Please register the customer first.";
+        }
+      }
+      if (!isEligible) {
+        if (offer.code && couponCode?.toUpperCase() === offer.code.toUpperCase()) {
+          couponError = failReason || `Customer type not eligible for this coupon.`;
+        }
+        continue;
+      }
+    }
     
     // For manual coupon code
     if (offer.code && couponCode?.toUpperCase() !== offer.code.toUpperCase()) {
@@ -121,13 +173,25 @@ const previewBill = asyncHandler(async (req, res) => {
     }
   }
 
+  if (couponCode) {
+    if (!couponMatchId) {
+      couponError = `Invalid or expired coupon code.`;
+    } else if (!couponError) {
+      const couponWasApplied = appliedOffers.some(o => o.offerId.toString() === couponMatchId);
+      if (!couponWasApplied) {
+        couponError = `Coupon conditions not met (e.g. minimum bill amount).`;
+      }
+    }
+  }
+
   res.json({
     success: true,
     subtotal,
     netAmount: currentTotal,
     totalSavings,
     appliedOffers,
-    items: finalItems
+    items: finalItems,
+    couponError
   });
 });
 
@@ -235,13 +299,12 @@ const saveBill = asyncHandler(async (req, res) => {
 
   let finalBillNo = billNo;
   if (!finalBillNo) {
-    const lastBill = await Bill.findOne().sort({ createdAt: -1 });
-    let nextNumber = 1;
-    if (lastBill?.billNo) {
-      const match = String(lastBill.billNo).match(/(\d+)$/);
-      if (match) nextNumber = parseInt(match[1], 10) + 1;
-    }
-    finalBillNo = `BILL${String(nextNumber).padStart(5, "0")}`;
+    const counter = await Counter.findOneAndUpdate(
+      { id: "billNo" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    finalBillNo = `BILL${String(counter.seq).padStart(5, "0")}`;
   }
 
   const bill = await Bill.create({
@@ -259,7 +322,7 @@ const saveBill = asyncHandler(async (req, res) => {
     totalProfit: totalBillProfit,
     totalItems,
     totalQuantity,
-    customerId,
+    customerId: (customerId && mongoose.isValidObjectId(customerId)) ? customerId : null,
     customerName: customerName || "Walk-in",
     customerMobile,
     appliedOffers: appliedOffers || [],
@@ -270,9 +333,12 @@ const saveBill = asyncHandler(async (req, res) => {
   });
 
   // Update Customer CRM stats if customerId is provided
-  if (customerId) {
-    const cust = await User.findById(customerId);
+  if (customerId && mongoose.isValidObjectId(customerId)) {
+    const cust = await Customer.findById(customerId);
     if (cust) {
+      if (customerName && customerName !== "Walk-in" && cust.username !== customerName) {
+        cust.username = customerName;
+      }
       cust.totalVisits += 1;
       cust.totalPurchases += totalQuantity;
       cust.totalSpent += netAmount;

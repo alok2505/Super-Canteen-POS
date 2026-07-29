@@ -6,7 +6,7 @@ import { getCustomers, createOrUpdateCustomer } from "../services/customerApi";
 
 function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearResumeHoldBill, customerId, setCustomerId, couponCode, setCouponCode }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
-  const [customerName, setCustomerName] = useState("Walk-in");
+  const [customerName, setCustomerName] = useState("");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerPaid, setCustomerPaid] = useState("");
   const [customerData, setCustomerData] = useState(null); // Full customer object
@@ -15,13 +15,22 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
   const [couponInput, setCouponInput] = useState("");
 
   useEffect(() => {
-    if (resumeHoldBill) {
-      setCustomerName(resumeHoldBill.customerName || "Walk-in");
-      setCustomerMobile(resumeHoldBill.customerMobile || "");
-      setCustomerPaid(resumeHoldBill.customerPaid || "");
-      setPaymentMode(resumeHoldBill.paymentMode || "Cash");
+    if (customerMobile && customerMobile.trim().length === 10) {
+      handleCustomerSearch();
     }
-  }, [resumeHoldBill]);
+  }, [customerMobile]);
+
+  useEffect(() => {
+    if (resumeHoldBill) {
+      setCustomerName(resumeHoldBill.customerName || "");
+      setCustomerMobile(resumeHoldBill.customerMobile || "");
+      setPaymentMode(resumeHoldBill.paymentMode || "Cash");
+      setCustomerPaid(resumeHoldBill.customerPaid || "");
+      if (resumeHoldBill.customerId && setCustomerId) {
+        setCustomerId(resumeHoldBill.customerId);
+      }
+    }
+  }, [resumeHoldBill, setCustomerId]);
 
   // Values from backend
   const grossAmount = bill?.grossAmount || 0;
@@ -76,7 +85,7 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
 
         clearCart();
         clearBill();
-        setCustomerName("Walk-in");
+        setCustomerName("");
         setCustomerMobile("");
         setCustomerPaid("");
         setPaymentMode("Cash");
@@ -141,7 +150,7 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
 
         clearCart();
         clearBill();
-        setCustomerName("Walk-in");
+        setCustomerName("");
         setCustomerMobile("");
         setCustomerPaid("");
         setPaymentMode("Cash");
@@ -293,15 +302,16 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
               Apply
             </button>
           </div>
-          {couponCode && <p className="text-xs text-green-600 mt-1 font-medium">Applied: {couponCode}</p>}
+          {bill?.appliedOffers?.some(o => o.code && couponCode && o.code.toUpperCase() === couponCode.toUpperCase()) && !bill?.couponError && <p className="text-xs text-green-600 mt-1 font-medium">Applied: {couponCode}</p>}
+          {bill?.couponError && <p className="text-xs text-red-600 mt-1 font-medium">{bill.couponError}</p>}
         </div>
 
         <hr />
 
         {/* Customer Section */}
         <div>
-          <label className="font-semibold text-sm">Customer Mobile</label>
-          <div className="flex mt-1">
+          <label className="font-semibold text-sm">Customer Mobile </label>
+          <div className="flex mt-1 mb-3">
             <input
               value={customerMobile}
               onChange={(e) => setCustomerMobile(e.target.value)}
@@ -312,6 +322,14 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
               <FaSearch />
             </button>
           </div>
+
+          <label className="font-semibold text-sm">Customer Name</label>
+          <input
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="Walk-in Customer"
+            className="w-full mt-1 border rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          />
         </div>
 
         {customerData && (
@@ -324,21 +342,6 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
               <span>Visits: {customerData.totalVisits}</span>
               <span>Spent: ₹{customerData.totalSpent?.toFixed(2)}</span>
             </div>
-          </div>
-        )}
-
-        {showNewCustomerForm && !customerData && (
-          <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm space-y-2 mt-3">
-            <p className="text-xs font-bold text-slate-500">NEW CUSTOMER</p>
-            <input
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Customer Name"
-              className="w-full border rounded p-2 outline-none"
-            />
-            <button onClick={handleCreateCustomer} className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-medium flex justify-center items-center gap-2">
-              <FaUserPlus /> Save & Select
-            </button>
           </div>
         )}
 

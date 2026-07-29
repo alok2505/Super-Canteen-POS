@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { getBills } from "../services/billApi";
+import { getBills, deleteBill } from "../services/billApi";
 import BillCard from "../components/BillCard";
 import DateFilter from "../components/DateFilter";
 
@@ -10,7 +10,6 @@ function Bills() {
 
   const loadBills = useCallback(async () => {
     try {
-      // Pass the dates to API
       const res = await getBills(dateRange?.startDate, dateRange?.endDate);
       const billList = Array.isArray(res?.data?.bills) ? res.data.bills : [];
       setBills(billList);
@@ -23,6 +22,17 @@ function Bills() {
   useEffect(() => {
     loadBills();
   }, [loadBills]);
+
+  const handleDeleteBill = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this bill? This action cannot be undone.")) return;
+    try {
+      await deleteBill(id);
+      loadBills();
+    } catch (err) {
+      console.error(err);
+      alert(err?.response?.data?.message || "Failed to delete bill");
+    }
+  };
 
   const filteredBills = (bills || []).filter((bill) => {
     const billNumber = String(bill?.billNumber ?? bill?.billNo ?? "").toLowerCase();
@@ -47,7 +57,7 @@ function Bills() {
 
       <div className="space-y-4">
         {filteredBills.length > 0 ? (
-          filteredBills.map((bill) => <BillCard  key={bill._id} bill={bill} />)
+          filteredBills.map((bill) => <BillCard key={bill._id} bill={bill} onDelete={handleDeleteBill} />)
         ) : (
           <div className="rounded-xl bg-white p-6 text-center text-slate-600 shadow-sm">
             No bills found.

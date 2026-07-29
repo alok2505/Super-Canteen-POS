@@ -16,8 +16,8 @@ router.get("/", authenticate, getOffers);
 router.get("/:id", authenticate, getOfferById);
 
 // Admin / StoreManager only to manage offers
-router.post("/", authenticate, requireRole([ADMIN, STORE_MANAGER]), createOffer);
-router.put("/:id", authenticate, requireRole([ADMIN, STORE_MANAGER]), updateOffer);
-router.delete("/:id", authenticate, requireRole([ADMIN, STORE_MANAGER]), deleteOffer);
+router.post("/", authenticate, requireRole(ADMIN, STORE_MANAGER), createOffer);
+router.put("/:id", authenticate, requireRole(ADMIN, STORE_MANAGER), updateOffer);
+router.delete("/:id", authenticate, requireRole(ADMIN, STORE_MANAGER), deleteOffer);
 
 module.exports = router;

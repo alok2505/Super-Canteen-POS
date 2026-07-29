@@ -6,7 +6,7 @@ import SearchBar from "../components/Searchbar";
 import BillingTable from "../components/BillingTable";
 import BillSummary from "../components/BillSummary";
 import ReturnMode from "../components/POS/ReturnMode";
-import { previewBill } from "../services/ProductApi";
+import { previewBill } from "../services/billApi";
 
 function POS() {
   const [cart, setCart] = useState([]);
@@ -53,6 +53,10 @@ function POS() {
         barcode: item.barcode,
         quantity: item.quantity,
         location: item.location,
+        sellingPrice: item.offerPrice ?? item.sellingPrice ?? 0,
+        mrp: item.mrp,
+        name: item.name,
+        productId: item.productId || item._id,
       }));
 
       const response = await previewBill({
@@ -62,8 +66,8 @@ function POS() {
       });
 
       setBill({
-        ...response.data.bill,
-        billNo: response.data.billNo,
+        ...response.data,
+        billNo: response.data.billNo || "Pending",
       });
     } catch (error) {
       console.log(error);

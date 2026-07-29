@@ -1,5 +1,5 @@
 const asyncHandler = require("../middlewares/asyncHandler");
-const User = require("../models/userModel");
+const Customer = require("../models/customerModel");
 const Bill = require("../models/billModel");
 
 // ==========================================
@@ -10,7 +10,7 @@ const getCustomers = asyncHandler(async (req, res) => {
   const franchiseId = req.user?.franchiseId;
   const { search, filter } = req.query;
 
-  let query = { role: "Customer" };
+  let query = {};
 
   // Support multi-tenant isolation if needed (optional: some systems share customers across franchises)
   // if (req.user?.role !== "Admin" && franchiseId) {
@@ -35,7 +35,7 @@ const getCustomers = asyncHandler(async (req, res) => {
     query.status = "Inactive";
   }
 
-  const customers = await User.find(query).sort({ lastVisit: -1, createdAt: -1 });
+  const customers = await Customer.find(query).sort({ lastVisit: -1, createdAt: -1 });
   res.json({ success: true, count: customers.length, customers });
 });
 
@@ -44,7 +44,7 @@ const getCustomers = asyncHandler(async (req, res) => {
 // GET /api/customers/:id
 // ==========================================
 const getCustomerById = asyncHandler(async (req, res) => {
-  const customer = await User.findOne({ _id: req.params.id, role: "Customer" });
+  const customer = await Customer.findById(req.params.id);
 
   if (!customer) {
     return res.status(404).json({ success: false, message: "Customer not found." });
@@ -72,7 +72,7 @@ const createOrUpdateCustomer = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "Mobile number is required." });
   }
 
-  let customer = await User.findOne({ contactNo, role: "Customer" });
+  let customer = await Customer.findOne({ contactNo });
 
   if (customer) {
     // Update optional fields if provided
@@ -95,11 +95,10 @@ const createOrUpdateCustomer = asyncHandler(async (req, res) => {
     }
   } else {
     // Create new customer
-    customer = await User.create({
+    customer = await Customer.create({
       username: username || "Customer",
       contactNo,
       email: email || null,
-      role: "Customer",
       franchiseId: req.user?.role !== "Admin" ? franchiseId : null,
       createdBy: req.user._id,
       dob: dob || null,

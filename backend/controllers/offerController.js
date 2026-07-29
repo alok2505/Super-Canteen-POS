@@ -58,6 +58,15 @@ const createOffer = asyncHandler(async (req, res) => {
     req.body.applicableFranchises = [req.user.franchiseId];
   }
 
+  if (req.body.code === "") {
+    delete req.body.code;
+  }
+
+  // Same for freeProduct.productId being empty string
+  if (req.body.benefits?.freeProduct?.productId === "") {
+      delete req.body.benefits.freeProduct.productId;
+  }
+
   const offer = await Offer.create(req.body);
   res.status(201).json({ success: true, offer });
 });
@@ -79,6 +88,14 @@ const updateOffer = asyncHandler(async (req, res) => {
       return res.status(403).json({ success: false, message: "Not authorized to update this offer." });
     }
     req.body.applicableFranchises = [req.user.franchiseId]; // Prevent changing franchise
+  }
+
+  if (req.body.code === "") {
+    req.body.code = null;
+  }
+
+  if (req.body.benefits?.freeProduct?.productId === "") {
+      req.body.benefits.freeProduct.productId = null;
   }
 
   offer = await Offer.findByIdAndUpdate(req.params.id, req.body, {
