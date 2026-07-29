@@ -107,33 +107,36 @@ function CustomerDetails() {
           </div>
         </div>
 
-        {/* Right Col: Purchase History */}
+        {/* Right Col: Transaction History */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
             <div className="p-6 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FaReceipt className="text-indigo-500" /> Purchase History</h2>
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><FaReceipt className="text-indigo-500" /> Transaction History</h2>
             </div>
             <div className="p-6 flex-1 overflow-y-auto">
               {history.length > 0 ? (
                 <div className="space-y-4">
-                  {history.map(bill => (
-                    <div key={bill._id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  {history.map(tx => {
+                    const isReturn = tx.transactionType === "RETURN";
+                    return (
+                    <div key={tx._id} className={`bg-slate-50 border ${isReturn ? 'border-red-200' : 'border-slate-200'} rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-slate-800">{bill.billNo}</span>
+                          <span className="font-bold text-slate-800">{tx.displayId}</span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                              bill.status === 'Completed' || !bill.status ? 'bg-green-100 text-green-700' :
-                              bill.status === 'Partially Returned' ? 'bg-amber-100 text-amber-700' :
-                              'bg-red-100 text-red-700'
+                              isReturn ? 'bg-red-100 text-red-700' :
+                              tx.status === 'Completed' || !tx.status ? 'bg-green-100 text-green-700' :
+                              tx.status === 'Partially Returned' ? 'bg-amber-100 text-amber-700' :
+                              'bg-green-100 text-green-700'
                             }`}>
-                              {bill.status || 'Completed'}
+                              {isReturn ? "RETURN" : (tx.status || 'SALE')}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-500">{new Date(bill.createdAt).toLocaleString()}</p>
+                        <p className="text-sm text-slate-500">{new Date(tx.displayDate).toLocaleString()}</p>
                         
-                        {bill.appliedOffers && bill.appliedOffers.length > 0 && (
+                        {!isReturn && tx.appliedOffers && tx.appliedOffers.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1">
-                            {bill.appliedOffers.map((o, idx) => (
+                            {tx.appliedOffers.map((o, idx) => (
                               <span key={idx} className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded font-medium">{o.name}</span>
                             ))}
                           </div>
@@ -142,19 +145,19 @@ function CustomerDetails() {
 
                       <div className="flex items-center gap-6">
                         <div className="text-right">
-                          <p className="font-bold text-lg text-slate-800">₹{bill.netAmount.toFixed(2)}</p>
-                          {bill.totalSavings > 0 && <p className="text-xs text-emerald-600 font-bold">Saved ₹{bill.totalSavings.toFixed(2)}</p>}
+                          <p className={`font-bold text-lg ${isReturn ? 'text-red-600' : 'text-slate-800'}`}>₹{tx.displayAmount?.toFixed(2)}</p>
+                          {!isReturn && tx.totalSavings > 0 && <p className="text-xs text-emerald-600 font-bold">Saved ₹{tx.totalSavings.toFixed(2)}</p>}
                         </div>
-                        <button onClick={() => navigate(`/bills/${bill._id}`)} className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-medium transition text-sm">
+                        <button onClick={() => navigate(`/bills/${isReturn ? tx.billId?._id || tx.billId : tx._id}`)} className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-medium transition text-sm">
                           View
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-slate-500">
-                  No purchases yet.
+                  No transactions yet.
                 </div>
               )}
             </div>

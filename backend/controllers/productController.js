@@ -5023,7 +5023,7 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     // A store can override a variant barcode, so look in its own inventory
     // first. Fall back to the master barcode for single products.
     const inventoryMatch = franchiseId
-      ? await FranchiseInventory.findOne({ franchiseId, barcode, quantity: { $gt: 0 }, isActive: true }).lean()
+      ? await FranchiseInventory.findOne({ franchiseId, barcode, isActive: true }).lean()
       : null;
     const product = await Product.findOne(inventoryMatch ? { _id: inventoryMatch.productId } : {
       $or: [
@@ -5047,12 +5047,22 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
 
     // Separate franchise inventory is the only inventory used by POS scans.
     if (franchiseId) {
-      const batches = await FranchiseInventory.find(inventoryMatch ? { franchiseId, productId: product._id, barcode, quantity: { $gt: 0 }, isActive: true } : { franchiseId, productId: product._id, quantity: { $gt: 0 }, isActive: true }).sort({ expiryDate: 1, createdAt: 1 }).lean();
-      const inventory = batches[0];
-      if (!inventory) {
+      // First find all batches regardless of quantity to check if it exists at all
+      const allBatches = await FranchiseInventory.find({ franchiseId, productId: product._id, barcode, isActive: true }).lean();
+      
+      if (allBatches.length === 0) {
         return res.status(404).json({ success: false, message: "This product is not in your franchise inventory." });
       }
-      const totalStock = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+
+      // Now find batches with stock > 0
+      const inStockBatches = allBatches.filter(b => b.quantity > 0).sort((a, b) => new Date(a.expiryDate || 0) - new Date(b.expiryDate || 0));
+      
+      if (inStockBatches.length === 0) {
+        return res.status(400).json({ success: false, message: "Product is out of stock!" });
+      }
+
+      const inventory = inStockBatches[0];
+      const totalStock = inStockBatches.reduce((sum, batch) => sum + batch.quantity, 0);
       return res.json({
         success: true,
         message: "Barcode scanned successfully.",
@@ -5198,6 +5208,10 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     }
   }
 }
+
+    if (!scannedVariant || !scannedVariant.countInStock || scannedVariant.countInStock <= 0) {
+      return res.status(400).json({ success: false, message: "Product is out of stock!" });
+    }
 
     return res.json({
       success: true,

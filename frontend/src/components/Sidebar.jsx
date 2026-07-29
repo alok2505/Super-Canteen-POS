@@ -114,14 +114,14 @@ function Sidebar({ collapsed, onToggle }) {
           </NavLink>
         )}
 
-        {/* Bills — for StoreManager and InventoryStaff */}
+        {/* Transactions — for StoreManager and InventoryStaff */}
         {isBillingUser && (
           <NavLink
             to="/bills"
             className={({ isActive }) => isActive ? activeLinkClass : baseLinkClass}
           >
             <FaFileInvoice className="shrink-0" />
-            {!collapsed && <span>Bills</span>}
+            {!collapsed && <span>Transactions</span>}
           </NavLink>
         )}
 
@@ -135,6 +135,8 @@ function Sidebar({ collapsed, onToggle }) {
             {!collapsed && <span>Returns</span>}
           </NavLink>
         )}
+
+
 
         {/* Hold Bills — for StoreManager and InventoryStaff */}
         {isBillingUser && (
@@ -220,8 +222,8 @@ function Sidebar({ collapsed, onToggle }) {
           </NavLink>
         )}
 
-        {/* Offers & Coupons — Admin and StoreManager */}
-        {(isAdmin || isStoreManager) && (
+        {/* Offers & Coupons — StoreManager only */}
+        {isStoreManager && (
           <NavLink to="/offers" className={({ isActive }) =>`${baseLinkClass} ${isActive ? "bg-indigo-600" : ""}`}>
             <FaTags className="shrink-0" />
             {!collapsed && <span>Coupons & Offers</span>}

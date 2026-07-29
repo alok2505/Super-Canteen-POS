@@ -81,6 +81,10 @@ function POS() {
       const existing = prev.find((item) => item.barcode === product.barcode);
 
       if (existing) {
+        if (existing.quantity >= product.countInStock) {
+          alert(`Cannot add more. Only ${product.countInStock} left in stock for ${product.name}`);
+          return prev;
+        }
         return prev.map((item) =>
           item.barcode === product.barcode
             ? {
@@ -89,6 +93,11 @@ function POS() {
               }
             : item,
         );
+      }
+
+      if (product.countInStock <= 0) {
+        alert(`Product ${product.name} is out of stock!`);
+        return prev;
       }
 
       return [
@@ -102,16 +111,21 @@ function POS() {
   };
 
   const increaseQuantity = (barcode) => {
-    setCart((prev) =>
-      prev.map((item) =>
+    setCart((prev) => {
+      const existingItem = prev.find((i) => i.barcode === barcode);
+      if (existingItem && existingItem.quantity >= existingItem.countInStock) {
+        alert(`Cannot add more. Only ${existingItem.countInStock} left in stock for ${existingItem.name}`);
+        return prev;
+      }
+      return prev.map((item) =>
         item.barcode === barcode
           ? {
               ...item,
               quantity: item.quantity + 1,
             }
           : item,
-      ),
-    );
+      );
+    });
   };
 
   const decreaseQuantity = (barcode) => {
@@ -135,7 +149,7 @@ function POS() {
 
   return (
     <div className="h-screen bg-slate-100 flex flex-col">
-      <Navbar billNo={bill?.billNo} />
+      <Navbar billNo={bill?.billNo && bill.billNo !== "Pending" ? bill.billNo : "New Bill"} />
 
       {canReturn && (
         <div className="bg-white border-b px-6 flex gap-6 shrink-0">

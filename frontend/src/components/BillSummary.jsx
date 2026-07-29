@@ -215,14 +215,14 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-2xl font-bold">Bill Summary</h2>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-            {bill?.billNo || "Pending"}
+            {bill?.billNo && bill.billNo !== "Pending" ? bill.billNo : "New Bill"}
           </span>
         </div>
       </div>
 
       {/* Body */}
 
-      <div className="flex-1 p-5 space-y-4 overflow-y-auto max-h-[50vh]">
+      <div className="flex-1 p-5 space-y-4 overflow-y-auto">
         <Row title="Subtotal" value={bill?.subtotal || 0} />
         
         {bill?.appliedOffers && bill.appliedOffers.length > 0 && (
@@ -335,12 +335,24 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
         {customerData && (
           <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-sm mt-3">
             <div className="flex justify-between items-center mb-1">
-              <span className="font-bold text-blue-800">{customerData.username}</span>
-              {customerData.isFrequent && <FaStar className="text-amber-500" title="Frequent Customer" />}
+              <span className="font-bold text-blue-800 flex items-center gap-2">
+                {customerData.username}
+                {customerData.isFrequent && <FaStar className="text-amber-500" title="Frequent Customer" />}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                customerData.isFrequent ? "bg-amber-100 text-amber-700" :
+                customerData.totalVisits > 0 ? "bg-blue-100 text-blue-700" :
+                "bg-emerald-100 text-emerald-700"
+              }`}>
+                {customerData.isFrequent ? "FREQUENT" : customerData.totalVisits > 0 ? "RETURNING" : "NEW"}
+              </span>
             </div>
-            <div className="flex justify-between text-blue-600 text-xs">
+            <div className="flex justify-between text-blue-600 text-xs mt-2">
               <span>Visits: {customerData.totalVisits}</span>
               <span>Spent: ₹{customerData.totalSpent?.toFixed(2)}</span>
+            </div>
+            <div className="text-blue-600 text-xs mt-1">
+              <span>Last Visit: {customerData.lastVisit ? new Date(customerData.lastVisit).toLocaleDateString() : "Never"}</span>
             </div>
           </div>
         )}

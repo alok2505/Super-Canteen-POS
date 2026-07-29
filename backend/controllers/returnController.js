@@ -213,7 +213,7 @@ const getReturns = asyncHandler(async (req, res) => {
   }
 
   const returns = await Return.find(query)
-    .populate("billId", "billNo")
+    .populate("billId", "billNo customerName customerMobile totalItems")
     .populate("returnedBy", "username")
     .sort({ createdAt: -1 });
 

@@ -1,6 +1,7 @@
 const asyncHandler = require("../middlewares/asyncHandler");
 const Customer = require("../models/customerModel");
 const Bill = require("../models/billModel");
+const Return = require("../models/returnModel");
 
 // ==========================================
 // Get All Customers
@@ -11,11 +12,6 @@ const getCustomers = asyncHandler(async (req, res) => {
   const { search, filter } = req.query;
 
   let query = {};
-
-  // Support multi-tenant isolation if needed (optional: some systems share customers across franchises)
-  // if (req.user?.role !== "Admin" && franchiseId) {
-  //   query.franchiseId = franchiseId;
-  // }
 
   if (search) {
     query.$or = [
@@ -40,7 +36,7 @@ const getCustomers = asyncHandler(async (req, res) => {
 });
 
 // ==========================================
-// Get Customer By ID (with bills)
+// Get Customer By ID (with bills and returns)
 // GET /api/customers/:id
 // ==========================================
 const getCustomerById = asyncHandler(async (req, res) => {
@@ -50,13 +46,36 @@ const getCustomerById = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: "Customer not found." });
   }
 
-  // Fetch their purchase history
-  const bills = await Bill.find({ customerId: customer._id }).sort({ createdAt: -1 });
+  // Fetch their purchase history (bills)
+  const bills = await Bill.find({ customerId: customer._id }).sort({ createdAt: -1 }).lean();
+  
+  // Extract bill IDs to find associated returns
+  const billIds = bills.map(b => b._id);
+  const returns = await Return.find({ billId: { $in: billIds } }).populate("billId", "billNo").lean();
+
+  // Normalize and merge bills and returns for the frontend timeline
+  const normalizedBills = bills.map(b => ({
+    ...b,
+    transactionType: "SALE",
+    displayId: b.billNo,
+    displayAmount: b.netAmount,
+    displayDate: b.createdAt
+  }));
+
+  const normalizedReturns = returns.map(r => ({
+    ...r,
+    transactionType: "RETURN",
+    displayId: r.returnNo,
+    displayAmount: r.refundAmount,
+    displayDate: r.createdAt
+  }));
+
+  const purchaseHistory = [...normalizedBills, ...normalizedReturns].sort((a, b) => new Date(b.displayDate) - new Date(a.displayDate));
 
   res.json({
     success: true,
     customer,
-    purchaseHistory: bills,
+    purchaseHistory,
   });
 });
 

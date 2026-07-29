@@ -116,7 +116,7 @@ const previewBill = asyncHandler(async (req, res) => {
     let isApplicable = false;
     let discount = 0;
 
-    if (offer.type === "Bill Value Discount") {
+    if (offer.type === "Bill Value Discount" || offer.type === "Flat Discount") {
       isApplicable = true;
       discount = offer.benefits.discountValue;
     } else if (offer.type === "Percentage Discount") {
@@ -167,7 +167,7 @@ const previewBill = asyncHandler(async (req, res) => {
       offerApplied = true;
       
       // Stop evaluating multiple bill discounts to prevent stacking overlapping % discounts
-      if (offer.type === "Bill Value Discount" || offer.type === "Percentage Discount") {
+      if (offer.type === "Bill Value Discount" || offer.type === "Flat Discount" || offer.type === "Percentage Discount") {
         break;
       }
     }
@@ -179,10 +179,21 @@ const previewBill = asyncHandler(async (req, res) => {
     } else if (!couponError) {
       const couponWasApplied = appliedOffers.some(o => o.offerId.toString() === couponMatchId);
       if (!couponWasApplied) {
-        couponError = `Coupon conditions not met (e.g. minimum bill amount).`;
+        couponError = `Coupon not applied. Conditions may not be met for this cart.`;
       }
     }
   }
+
+  const lastBill = await Bill.findOne().sort({ createdAt: -1 });
+  let nextNumber = 15;
+  if (lastBill && lastBill.billNo) {
+    const match = String(lastBill.billNo).match(/(\d+)$/);
+    if (match) nextNumber = parseInt(match[1], 10) + 1;
+  }
+  let expectedBillNo = `BILL${String(nextNumber).padStart(5, "0")}`;
+
+  const totalItems = finalItems.length;
+  const totalQuantity = finalItems.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
 
   res.json({
     success: true,
@@ -191,7 +202,10 @@ const previewBill = asyncHandler(async (req, res) => {
     totalSavings,
     appliedOffers,
     items: finalItems,
-    couponError
+    couponError,
+    billNo: expectedBillNo,
+    totalItems,
+    totalQuantity
   });
 });
 
@@ -230,6 +244,10 @@ const saveBill = asyncHandler(async (req, res) => {
 
   const finalItems = [];
   let totalBillProfit = 0;
+
+  // Fallback calculations if frontend failed to provide them
+  const safeTotalItems = totalItems || items.length;
+  const safeTotalQuantity = totalQuantity || items.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
 
   for (const item of items) {
     let remainingQuantity = Number(item.quantity);
@@ -297,14 +315,25 @@ const saveBill = asyncHandler(async (req, res) => {
     }
   }
 
-  let finalBillNo = billNo;
-  if (!finalBillNo) {
-    const counter = await Counter.findOneAndUpdate(
-      { id: "billNo" },
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true }
-    );
-    finalBillNo = `BILL${String(counter.seq).padStart(5, "0")}`;
+  const lastBill = await Bill.findOne().sort({ createdAt: -1 });
+  let nextNumber = 15;
+  if (lastBill && lastBill.billNo) {
+    const match = String(lastBill.billNo).match(/(\d+)$/);
+    if (match) nextNumber = parseInt(match[1], 10) + 1;
+  }
+  const finalBillNo = `BILL${String(nextNumber).padStart(5, "0")}`;
+
+  let finalCustomerId = (customerId && mongoose.isValidObjectId(customerId)) ? customerId : null;
+  if (!finalCustomerId && customerMobile && customerMobile.length >= 10) {
+    let cust = await Customer.findOne({ contactNo: customerMobile });
+    if (!cust) {
+      cust = await Customer.create({
+        contactNo: customerMobile,
+        username: customerName && customerName !== "Walk-in" ? customerName : "Walk-in Customer",
+        franchiseId,
+      });
+    }
+    finalCustomerId = cust._id;
   }
 
   const bill = await Bill.create({
@@ -320,9 +349,9 @@ const saveBill = asyncHandler(async (req, res) => {
     gst,
     netAmount,
     totalProfit: totalBillProfit,
-    totalItems,
-    totalQuantity,
-    customerId: (customerId && mongoose.isValidObjectId(customerId)) ? customerId : null,
+    totalItems: safeTotalItems,
+    totalQuantity: safeTotalQuantity,
+    customerId: finalCustomerId,
     customerName: customerName || "Walk-in",
     customerMobile,
     appliedOffers: appliedOffers || [],
@@ -332,15 +361,15 @@ const saveBill = asyncHandler(async (req, res) => {
     changeReturned,
   });
 
-  // Update Customer CRM stats if customerId is provided
-  if (customerId && mongoose.isValidObjectId(customerId)) {
-    const cust = await Customer.findById(customerId);
+  // Update Customer CRM stats if finalCustomerId is resolved
+  if (finalCustomerId) {
+    const cust = await Customer.findById(finalCustomerId);
     if (cust) {
       if (customerName && customerName !== "Walk-in" && cust.username !== customerName) {
         cust.username = customerName;
       }
       cust.totalVisits += 1;
-      cust.totalPurchases += totalQuantity;
+      cust.totalPurchases += safeTotalQuantity;
       cust.totalSpent += netAmount;
       cust.totalSavings += (totalSavings || savings || 0);
       cust.lastVisit = new Date();
