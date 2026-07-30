@@ -13,7 +13,9 @@
 // so even if someone bypasses the frontend, the API returns 403.
 // ============================================================
 
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { connectPrinter } from "./services/printerService";
 
 import MainLayout from "./layouts/MainLayout";
 
@@ -35,6 +37,7 @@ import Batches from "./pages/Batches";
 import Customers from "./pages/Customers";
 import CustomerDetails from "./pages/CustomerDetails";
 import Offers from "./pages/Offers";
+import PrinterSettings from "./settings/PrinterSettings";
 
 // Helper: reads role from localStorage
 const getRole = () => JSON.parse(localStorage.getItem("user") || "null")?.role;
@@ -118,6 +121,16 @@ const RoleDefaultRedirect = () => {
 };
 
 function App() {
+  useEffect(() => {
+    const initPrinter = async () => {
+      const connected = await connectPrinter();
+      if (!connected) {
+        alert("QZ Tray is not running. Please start it for printing and cash drawer functionality.");
+      }
+    };
+    initPrinter();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -165,6 +178,9 @@ function App() {
 
             {/* Dashboard — Reports and Alerts (StoreManager only) */}
             <Route path="/dashboard" element={<StoreManagerRoute><Dashboard /></StoreManagerRoute>} />
+
+            {/* Settings — Printer Configuration */}
+            <Route path="/settings" element={<PrinterSettings />} />
 
             {/* Inventory Module */}
             <Route path="/inventory/stock" element={<InventoryViewRoute><Stock /></InventoryViewRoute>} />

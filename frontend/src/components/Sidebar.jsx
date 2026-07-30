@@ -26,6 +26,7 @@ import {
   FaUndo,
   FaUserFriends,
   FaTags,
+  FaPrint,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -236,6 +237,14 @@ function Sidebar({ collapsed, onToggle }) {
           <NavLink to="/staff" className={({ isActive }) =>`${baseLinkClass} ${isActive ? "bg-indigo-600" : ""}`}>
             <FaUsers className="shrink-0" />
             {!collapsed && <span>My Staff</span>}
+          </NavLink>
+        )}
+
+        {/* Printer Settings — Billing users only */}
+        {isBillingUser && (
+          <NavLink to="/settings" className={({ isActive }) =>`${baseLinkClass} ${isActive ? "bg-indigo-600" : ""}`}>
+            <FaPrint className="shrink-0" />
+            {!collapsed && <span>Printer Settings</span>}
           </NavLink>
         )}
       </nav>

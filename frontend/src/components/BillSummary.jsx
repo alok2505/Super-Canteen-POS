@@ -3,6 +3,7 @@ import { FaMoneyBillWave, FaCreditCard, FaMobileAlt, FaSearch, FaUserPlus, FaTag
 import { saveBill } from "../services/billApi";
 import { saveHoldBill, deleteHoldBill } from "../services/holdBillApi";
 import { getCustomers, createOrUpdateCustomer } from "../services/customerApi";
+import { printReceipt, openCashDrawer } from "../services/printerService";
 
 function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearResumeHoldBill, customerId, setCustomerId, couponCode, setCouponCode }) {
   const [paymentMode, setPaymentMode] = useState("Cash");
@@ -146,6 +147,36 @@ function BillSummary({ bill, cart, clearCart, clearBill, resumeHoldBill, clearRe
         if (resumeHoldBill && resumeHoldBill._id) {
             await deleteHoldBill(resumeHoldBill._id);
         }
+
+        // Prepare receipt data
+        const receiptData = [
+          '\x1B\x40',          // init
+          '\x1B\x61\x01',      // center align
+          'SUPER CANTEEN\n',
+          'Receipt\n',
+          '--------------------------\n',
+          '\x1B\x61\x00',      // left align
+          `Bill No: ${bill?.billNo || response.data.bill?.billNo || "N/A"}\n`,
+          `Amount: Rs.${bill.netAmount}\n`,
+          '--------------------------\n',
+          '\x1B\x64\x05',      // feed 5 lines
+          '\x1D\x56\x41\x00'   // cut paper
+        ];
+
+        // 1. Print Receipt
+        const printRes = await printReceipt(receiptData);
+        if (!printRes.success) {
+          alert(`Printer Offline / Print Failed: ${printRes.error}`);
+        } else {
+          // 2. Open Drawer if Cash
+          if (paymentMode === "Cash") {
+            const drawerRes = await openCashDrawer();
+            if (!drawerRes.success) {
+              alert(`Unable to open drawer: ${drawerRes.error}`);
+            }
+          }
+        }
+
         alert(response.data.message || "Bill saved successfully.");
 
         clearCart();
