@@ -18,6 +18,7 @@
 
 const express = require("express");
 const router = express.Router();
+const upload = require("../middlewares/upload");
 
 const {
   authenticate,
@@ -53,12 +54,12 @@ const {
 // POST /products
 // Creates a new master product in the catalogue.
 // Only Admin manages the master product catalogue.
-router.post("/", authenticate, requireRole(...ADMIN_ONLY), addProduct);
+router.post("/", authenticate, requireRole(...ADMIN_ONLY), upload.single("image"), addProduct);
 
 // PUT /products/:id
 // Updates a master product's details (name, price, barcode, category, etc.).
 // Only Admin can modify master product data.
-router.put("/:id", authenticate, requireRole(...ADMIN_ONLY), updateProductDetails);
+router.put("/:id", authenticate, requireRole(...ADMIN_ONLY), upload.single("image"), updateProductDetails);
 
 // DELETE /products/:id
 // Permanently deletes a product from the master catalogue.
