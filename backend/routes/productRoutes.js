@@ -1,3 +1,4 @@
+
 // ============================================================
 // productRoutes.js — Product catalogue & POS scan/search endpoints
 // ============================================================
@@ -54,12 +55,12 @@ const {
 // POST /products
 // Creates a new master product in the catalogue.
 // Only Admin manages the master product catalogue.
-router.post("/", authenticate, requireRole(...ADMIN_ONLY), upload.single("image"), addProduct);
+router.post("/", authenticate, requireRole(...ADMIN_ONLY), upload.array("images", 5), addProduct);
 
 // PUT /products/:id
 // Updates a master product's details (name, price, barcode, category, etc.).
 // Only Admin can modify master product data.
-router.put("/:id", authenticate, requireRole(...ADMIN_ONLY), upload.single("image"), updateProductDetails);
+router.put("/:id", authenticate, requireRole(...ADMIN_ONLY), upload.array("images", 5), updateProductDetails);
 
 // DELETE /products/:id
 // Permanently deletes a product from the master catalogue.

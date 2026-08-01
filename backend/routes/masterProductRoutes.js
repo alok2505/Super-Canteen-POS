@@ -28,6 +28,8 @@ const {
 // Apply authentication to all routes in this file
 router.use(authenticate);
 
+const upload = require("../middlewares/upload");
+
 // GET /master-products
 // Returns the full master product catalogue.
 // Available to all authenticated users — StoreManagers browse this
@@ -37,12 +39,15 @@ router.get("/", listMasterProducts);
 // POST /master-products
 // Adds a new product to the global master catalogue.
 // Only Admin can create master products.
-router.post("/", requireRole(...ADMIN_ONLY), createMasterProduct);
+router.post("/", requireRole(...ADMIN_ONLY), upload.array("images", 5), createMasterProduct);
 
 // PATCH /master-products/:productId
 // Updates a master product (price, name, barcode, category, etc.).
 // Only Admin can edit the global catalogue.
-router.patch("/:productId", requireRole(...ADMIN_ONLY), updateMasterProduct);
+router.patch("/:productId", requireRole(...ADMIN_ONLY), upload.array("images", 5), updateMasterProduct);
+
+
+
 
 // DELETE /master-products/:productId
 // Removes a product from the master catalogue.

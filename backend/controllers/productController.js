@@ -16,8 +16,6 @@ const moment = require("moment-timezone");
 // const admin = require("firebase-admin");
 // const Franchise   = require('../models/franchiseSchema.js');
 
-
-
 //singleStore
 // const addProduct = asyncHandler(async (req, res) => {
 //   try {
@@ -230,12 +228,25 @@ const addProduct = asyncHandler(async (req, res) => {
     const role = req.user?.role;
     const franchiseId = req.user?.franchiseId;
     if (role !== "StoreManager" || !franchiseId) {
-      return res.status(403).json({ success: false, message: "Only an assigned Store Manager can add products." });
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Only an assigned Store Manager can add products.",
+        });
     }
 
-    const imageUrls = Array.isArray(fields.images) ? fields.images : Object.keys(fields)
-      .filter((key) => key.startsWith("imageUrls"))
-      .map((key) => fields[key]);
+    // const imageUrls = Array.isArray(fields.images) ? fields.images : Object.keys(fields)
+    //   .filter((key) => key.startsWith("imageUrls"))
+    //   .map((key) => fields[key]);
+
+    let imageUrls = []; //upload image through backend for proper validation
+
+    if (req.files && req.files.length > 0) {
+      imageUrls = req.files.map((file) => file.path);
+    } else if (req.file) {
+      imageUrls.push(req.file.path);
+    }
 
     const productCoupons = Object.keys(fields)
       .filter((key) => key.startsWith("coupons["))
@@ -263,7 +274,9 @@ const addProduct = asyncHandler(async (req, res) => {
     const size = fields.size || null;
 
     const variantsRaw = fields.variants
-      ? (typeof fields.variants === "string" ? JSON.parse(fields.variants) : fields.variants)
+      ? typeof fields.variants === "string"
+        ? JSON.parse(fields.variants)
+        : fields.variants
       : [];
     let colorVariants = [];
     let flatVariants = [];
@@ -343,19 +356,21 @@ const addProduct = asyncHandler(async (req, res) => {
     //     : [],
     // }));
 
-    const franchiseInventories = [{
-      franchiseId,
-      mrp: Number(mrp) || 0,
-      offerPrice: Number(offerPrice) || 0,
-      countInStock: Number(countInStock) || 0,
-      lowStockThreshold: Number(lowStockThreshold) || 10,
-      minOrderQuantity: Number(minQuantity) || 1,
-      maxOrderQuantity: Number(maxQuantity) || null,
-      outOfStock: Number(countInStock) <= 0,
-      isEnable: Number(countInStock) > 0,
-      flatVariants,
-      colorVariants,
-    }];
+    const franchiseInventories = [
+      {
+        franchiseId,
+        mrp: Number(mrp) || 0,
+        offerPrice: Number(offerPrice) || 0,
+        countInStock: Number(countInStock) || 0,
+        lowStockThreshold: Number(lowStockThreshold) || 10,
+        minOrderQuantity: Number(minQuantity) || 1,
+        maxOrderQuantity: Number(maxQuantity) || null,
+        outOfStock: Number(countInStock) <= 0,
+        isEnable: Number(countInStock) > 0,
+        flatVariants,
+        colorVariants,
+      },
+    ];
 
     const product = new Product({
       name,
@@ -883,6 +898,13 @@ const updateProductDetails = asyncHandler(async (req, res) => {
       : fields.images
         ? JSON.parse(fields.images)
         : [];
+        
+    if (req.files && req.files.length > 0) {
+      const uploadedImages = req.files.map((file) => file.path);
+      newImageUrls = [...newImageUrls, ...uploadedImages];
+    } else if (req.file) {
+      newImageUrls.push(req.file.path);
+    }
     let removedImages = Array.isArray(fields.removedImages)
       ? fields.removedImages
       : fields.removedImages
@@ -2540,7 +2562,7 @@ const productSearch = asyncHandler(async (req, res) => {
         { "colorVariants.sizes.size": regex },
         { "colorVariants.sizes.sku": regex },
         { "colorVariants.sizes.barcode": regex }, // ⭐ NEW -> Search ColorSize Barcode
-        
+
         // Location Search
         { "franchiseInventories.location.section": regex },
         { "franchiseInventories.location.rack": regex },
@@ -3276,7 +3298,12 @@ const notifyBackInStockUsers = async ({
 // version - 1.1
 const updateStockCount = asyncHandler(async (req, res) => {
   const { productId } = req.params;
-  const { countInStock, variantId, location, franchiseId: bodyFranchiseId } = req.body;
+  const {
+    countInStock,
+    variantId,
+    location,
+    franchiseId: bodyFranchiseId,
+  } = req.body;
 
   if (
     countInStock === null ||
@@ -3317,10 +3344,15 @@ const updateStockCount = asyncHandler(async (req, res) => {
           lowStockThreshold: product.lowStockThreshold || 10,
           outOfStock: true,
           isEnable: false,
-          flatVariants: (product.flatVariants || []).map((variant) => variant.toObject()),
-          colorVariants: (product.colorVariants || []).map((color) => color.toObject()),
+          flatVariants: (product.flatVariants || []).map((variant) =>
+            variant.toObject(),
+          ),
+          colorVariants: (product.colorVariants || []).map((color) =>
+            color.toObject(),
+          ),
         });
-        inv = product.franchiseInventories[product.franchiseInventories.length - 1];
+        inv =
+          product.franchiseInventories[product.franchiseInventories.length - 1];
       }
       if (!inv)
         return res.status(404).json({
@@ -5025,15 +5057,23 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     // A store can override a variant barcode, so look in its own inventory
     // first. Fall back to the master barcode for single products.
     const inventoryMatch = franchiseId
-      ? await FranchiseInventory.findOne({ franchiseId, barcode, isActive: true }).lean()
+      ? await FranchiseInventory.findOne({
+          franchiseId,
+          barcode,
+          isActive: true,
+        }).lean()
       : null;
-    const product = await Product.findOne(inventoryMatch ? { _id: inventoryMatch.productId } : {
-      $or: [
-        { barcode },
-        { "flatVariants.barcode": barcode },
-        { "colorVariants.sizes.barcode": barcode },
-      ],
-    })
+    const product = await Product.findOne(
+      inventoryMatch
+        ? { _id: inventoryMatch.productId }
+        : {
+            $or: [
+              { barcode },
+              { "flatVariants.barcode": barcode },
+              { "colorVariants.sizes.barcode": barcode },
+            ],
+          },
+    )
       .populate("brand", "name")
       .populate("category")
       .populate("subCategory")
@@ -5050,31 +5090,58 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
     // Separate franchise inventory is the only inventory used by POS scans.
     if (franchiseId) {
       // First find all batches regardless of quantity to check if it exists at all
-      const allBatches = await FranchiseInventory.find({ franchiseId, productId: product._id, barcode, isActive: true }).lean();
-      
+      const allBatches = await FranchiseInventory.find({
+        franchiseId,
+        productId: product._id,
+        barcode,
+        isActive: true,
+      }).lean();
+
       if (allBatches.length === 0) {
-        return res.status(404).json({ success: false, message: "This product is not in your franchise inventory." });
+        return res
+          .status(404)
+          .json({
+            success: false,
+            message: "This product is not in your franchise inventory.",
+          });
       }
 
       // Now find batches with stock > 0
-      const inStockBatches = allBatches.filter(b => b.quantity > 0).sort((a, b) => new Date(a.expiryDate || 0) - new Date(b.expiryDate || 0));
-      
+      const inStockBatches = allBatches
+        .filter((b) => b.quantity > 0)
+        .sort(
+          (a, b) => new Date(a.expiryDate || 0) - new Date(b.expiryDate || 0),
+        );
+
       if (inStockBatches.length === 0) {
-        return res.status(400).json({ success: false, message: "Product is out of stock!" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Product is out of stock!" });
       }
 
       const inventory = inStockBatches[0];
-      const totalStock = inStockBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+      const totalStock = inStockBatches.reduce(
+        (sum, batch) => sum + batch.quantity,
+        0,
+      );
       return res.json({
         success: true,
         message: "Barcode scanned successfully.",
         scannedVariant: {
-          productId: product._id, masterVariantId: inventory.masterVariantId,
-          productType: inventory.masterVariantId ? "Variant" : "Single", name: product.name,
-          image: product.images?.[0] || "", barcode: barcode, sku: product.sku,
-          color: inventory.color, size: inventory.size,
-          mrp: product.mrp, offerPrice: inventory.sellingPrice, countInStock: totalStock,
-          location: inventory.location, tax: product.tax || 0,
+          productId: product._id,
+          masterVariantId: inventory.masterVariantId,
+          productType: inventory.masterVariantId ? "Variant" : "Single",
+          name: product.name,
+          image: product.images?.[0] || "",
+          barcode: barcode,
+          sku: product.sku,
+          color: inventory.color,
+          size: inventory.size,
+          mrp: product.mrp,
+          offerPrice: inventory.sellingPrice,
+          countInStock: totalStock,
+          location: inventory.location,
+          tax: product.tax || 0,
         },
       });
     }
@@ -5139,80 +5206,82 @@ const scanProductByBarcode = asyncHandler(async (req, res) => {
 
     // WeightPack barcode
     if (!scannedVariant) {
-  const variant = response.flatVariants?.find(
-    (v) => v.barcode === barcode
-  );
+      const variant = response.flatVariants?.find((v) => v.barcode === barcode);
 
-  if (variant) {
-    scannedVariant = {
-      productId: product._id,
-      productType: "WeightPack",
+      if (variant) {
+        scannedVariant = {
+          productId: product._id,
+          productType: "WeightPack",
 
-      name: product.name,
-      image: product.images?.[0] || "",
+          name: product.name,
+          image: product.images?.[0] || "",
 
-      size: variant.size,
+          size: variant.size,
 
-      barcode: variant.barcode,
-      sku: variant.sku,
+          barcode: variant.barcode,
+          sku: variant.sku,
 
-      mrp: variant.mrp,
-      offerPrice: variant.offerPrice,
+          mrp: variant.mrp,
+          offerPrice: variant.offerPrice,
 
-      countInStock: variant.countInStock,
+          countInStock: variant.countInStock,
 
-      minOrderQuantity: variant.minOrderQuantity,
-      maxOrderQuantity: variant.maxOrderQuantity,
+          minOrderQuantity: variant.minOrderQuantity,
+          maxOrderQuantity: variant.maxOrderQuantity,
 
-      location: variant.location,
+          location: variant.location,
 
-      tax: product.tax || 0,
-    };
-  }
-}
+          tax: product.tax || 0,
+        };
+      }
+    }
 
     // ColorSize barcode
     if (!scannedVariant) {
-  for (const color of response.colorVariants || []) {
-    const size = color.sizes.find(
-      (s) => s.barcode === barcode
-    );
+      for (const color of response.colorVariants || []) {
+        const size = color.sizes.find((s) => s.barcode === barcode);
 
-    if (size) {
-      scannedVariant = {
-        productId: product._id,
-        productType: "ColorSize",
+        if (size) {
+          scannedVariant = {
+            productId: product._id,
+            productType: "ColorSize",
 
-        name: product.name,
-        image: product.images?.[0] || "",
+            name: product.name,
+            image: product.images?.[0] || "",
 
-        color: color.name,
-        colorCode: color.code,
+            color: color.name,
+            colorCode: color.code,
 
-        size: size.size,
+            size: size.size,
 
-        barcode: size.barcode,
-        sku: size.sku,
+            barcode: size.barcode,
+            sku: size.sku,
 
-        mrp: size.mrp,
-        offerPrice: size.offerPrice,
+            mrp: size.mrp,
+            offerPrice: size.offerPrice,
 
-        countInStock: size.countInStock,
+            countInStock: size.countInStock,
 
-        minOrderQuantity: size.minOrderQuantity,
-        maxOrderQuantity: size.maxOrderQuantity,
+            minOrderQuantity: size.minOrderQuantity,
+            maxOrderQuantity: size.maxOrderQuantity,
 
-        location: size.location,
+            location: size.location,
 
-        tax: product.tax || 0,
-      };
-      break;
+            tax: product.tax || 0,
+          };
+          break;
+        }
+      }
     }
-  }
-}
 
-    if (!scannedVariant || !scannedVariant.countInStock || scannedVariant.countInStock <= 0) {
-      return res.status(400).json({ success: false, message: "Product is out of stock!" });
+    if (
+      !scannedVariant ||
+      !scannedVariant.countInStock ||
+      scannedVariant.countInStock <= 0
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Product is out of stock!" });
     }
 
     return res.json({

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FaEdit, FaPlus, FaTrash, FaBoxOpen, FaLayerGroup } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import api from "../services/apiConfig";
+import toast from "react-hot-toast";
 
 // ─────────────────────────────────────────────
 // Utility helpers
@@ -207,7 +208,6 @@ function Products() {
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [alert, setAlert] = useState(null);
 
   // modal type: null | "master" | "masterEdit" | "inventory" (for admin's own stock) | "edit" (inventory batch for SM)
   const [modal, setModal] = useState(null);
@@ -218,6 +218,7 @@ function Products() {
     tax: "0", productType: "Single",
     flatVariants: [blankFlatVariant()],
     colorVariants: [blankColorVariant()],
+    images: [],
   };
   const [masterForm, setMasterForm] = useState(blankMaster);
   const [editingProductId, setEditingProductId] = useState(null);
@@ -226,7 +227,30 @@ function Products() {
   const blankBatch = { inventoryId: "", barcode: "", batchNo: "", quantity: 0, purchasePrice: 0, sellingPrice: "", expiryDate: "", location: blankLocation };
   const [batchForm, setBatchForm] = useState(blankBatch);
 
-  const showAlert = (type, msg) => { setAlert({ type, msg }); setTimeout(() => setAlert(null), 3500); };
+  const showAlert = (type, msg) => {
+    if (type === "error") toast.error(msg);
+    else toast.success(msg);
+  };
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const validFiles = [];
+    const MAX_SIZE = 250 * 1024; // 250KB
+    let hasError = false;
+    
+    for (const file of files) {
+      if (file.size > MAX_SIZE) {
+        hasError = true;
+      } else {
+        validFiles.push(file);
+      }
+    }
+    
+    if (hasError) {
+      showAlert("error", "One or more images exceed the 250KB limit and were removed.");
+    }
+    setMasterForm(f => ({ ...f, images: validFiles }));
+  };
 
   // ── Load data ──
   const load = async () => {
@@ -276,33 +300,60 @@ function Products() {
       body.mrp = Number(masterForm.mrp);
       body.offerPrice = Number(masterForm.offerPrice || masterForm.mrp);
     } else if (masterForm.productType === "WeightPack") {
-      body.flatVariants = masterForm.flatVariants.map(v => ({
-        ...v,
-        mrp: Number(v.mrp),
-        offerPrice: Number(v.offerPrice || v.mrp),
-        countInStock: Number(v.countInStock || 0),
-        barcode: v.barcode || undefined,
-        sku: v.sku || undefined,
-      }));
+      body.flatVariants = masterForm.flatVariants.map(v => {
+        const variantData = {
+          ...v,
+          mrp: Number(v.mrp),
+          offerPrice: Number(v.offerPrice || v.mrp),
+          countInStock: Number(v.countInStock || 0),
+          barcode: v.barcode || undefined,
+          sku: v.sku || undefined,
+        };
+        if (variantData._id && !/^[0-9a-fA-F]{24}$/.test(String(variantData._id))) {
+          delete variantData._id;
+        }
+        return variantData;
+      });
     } else if (masterForm.productType === "ColorSize") {
-      body.colorVariants = masterForm.colorVariants.map(c => ({
-        ...c,
-        sizes: c.sizes.map(s => ({
-          ...s,
-          mrp: Number(s.mrp),
-          offerPrice: Number(s.offerPrice || s.mrp),
-          countInStock: Number(s.countInStock || 0),
-          barcode: s.barcode || undefined,
-          sku: s.sku || undefined,
-        })),
-      }));
+      body.colorVariants = masterForm.colorVariants.map(c => {
+        const colorData = {
+          ...c,
+          sizes: c.sizes.map(s => {
+            const sizeData = {
+              ...s,
+              mrp: Number(s.mrp),
+              offerPrice: Number(s.offerPrice || s.mrp),
+              countInStock: Number(s.countInStock || 0),
+              barcode: s.barcode || undefined,
+              sku: s.sku || undefined,
+            };
+            if (sizeData._id && !/^[0-9a-fA-F]{24}$/.test(String(sizeData._id))) {
+              delete sizeData._id;
+            }
+            return sizeData;
+          }),
+        };
+        if (colorData._id && !/^[0-9a-fA-F]{24}$/.test(String(colorData._id))) {
+          delete colorData._id;
+        }
+        return colorData;
+      });
     }
+    const formData = new FormData();
+    formData.append("data", JSON.stringify(body));
+    
+    if (masterForm.images && masterForm.images.length > 0) {
+      masterForm.images.forEach(img => {
+        formData.append("images", img);
+      });
+    }
+
     try {
       if (modal === "master") {
-        await api.post("/master-products", body);
+        await api.post("/master-products", formData);
         showAlert("success", "Master product created.");
       } else {
-        await api.patch(`/master-products/${editingProductId}`, body);
+        await api.patch(`/master-products/${editingProductId}`, formData);
         showAlert("success", "Product updated.");
       }
       setModal(null);
@@ -357,15 +408,6 @@ function Products() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-8">
-
-      {/* Toast alert */}
-      {alert && (
-        <div className={`fixed top-6 right-6 z-[100] flex items-center gap-3 rounded-xl px-5 py-3.5 text-sm font-semibold shadow-xl ${
-          alert.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
-        }`}>
-          {alert.type === "success" ? "✓" : "✕"} {alert.msg}
-        </div>
-      )}
 
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -448,7 +490,21 @@ function Products() {
                   <td className="px-6 py-4 font-semibold text-slate-700">
                     {isAdmin
                       ? (item.hasVariants ? <span className="italic text-slate-400">per variant</span> : `₹${item.mrp}`)
-                      : `₹${product?.mrp}`}
+                      : (product?.hasVariants ? (
+                          (() => {
+                            if (product.productType === "WeightPack") {
+                              const v = product.flatVariants?.find(x => x._id === item.masterVariantId);
+                              return v ? `₹${v.mrp}` : `₹0`;
+                            } else if (product.productType === "ColorSize") {
+                              for (const color of product.colorVariants || []) {
+                                const s = color.sizes?.find(x => x._id === item.masterVariantId);
+                                if (s) return `₹${s.mrp}`;
+                              }
+                              return `₹0`;
+                            }
+                            return `₹0`;
+                          })()
+                        ) : `₹${product?.mrp}`)}
                   </td>
                   {isAdmin ? (
                     <td className="px-6 py-4">
@@ -525,6 +581,19 @@ function Products() {
                     <option value="WeightPack">Weight / Pack variants (e.g. 250g, 500g, 1kg)</option>
                     <option value="ColorSize">Color + Size variants (e.g. clothing)</option>
                   </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Product Images (Max 250KB each)</label>
+                  <input 
+                    type="file" 
+                    multiple 
+                    accept="image/*" 
+                    onChange={handleImageSelect} 
+                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  />
+                  {masterForm.images && masterForm.images.length > 0 && (
+                    <p className="mt-2 text-xs text-green-600">{masterForm.images.length} file(s) selected</p>
+                  )}
                 </div>
               </div>
             </Section>

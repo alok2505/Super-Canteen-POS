@@ -6,7 +6,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: "products", // Specify the folder name in Cloudinary
-    allowed_formats: ["jpg", "jpeg", "png"], // Specify allowed file formats
+    allowed_formats: ["jpg", "jpeg", "png", "webp"], // Specify allowed file formats
   },
 });
 

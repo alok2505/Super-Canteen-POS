@@ -30,6 +30,7 @@ const listMasterProducts = asyncHandler(async (req, res) => {
 // After creation the product is available for StoreManagers
 // to pull into their franchise inventory via the Catalog page.
 const createMasterProduct = asyncHandler(async (req, res) => {
+  const payload = req.body.data ? JSON.parse(req.body.data) : req.body;
   const {
     name, barcode, sku, mrp, offerPrice,
     brand, category, tax = 0, image = "",
@@ -37,7 +38,7 @@ const createMasterProduct = asyncHandler(async (req, res) => {
     hasVariants = false,
     flatVariants = [],
     colorVariants = [],
-  } = req.body;
+  } = payload;
 
   if (!name) {
     return res.status(400).json({ success: false, message: "Product name is required." });
@@ -81,6 +82,14 @@ const createMasterProduct = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
+  if (req.files && req.files.length > 0) {
+    product.images = req.files.map((file) => file.path);
+    await product.save();
+  } else if (req.file) {
+    product.images = [req.file.path];
+    await product.save();
+  }
+
   res.status(201).json({ success: true, product });
 });
 
@@ -89,10 +98,12 @@ const createMasterProduct = asyncHandler(async (req, res) => {
 // Admin can change the product type, add/remove variants,
 // and update pricing and stock for each variant.
 const updateMasterProduct = asyncHandler(async (req, res) => {
+  console.log("Controller reached");
+  const payload = req.body.data ? JSON.parse(req.body.data) : req.body;
   const {
     name, barcode, sku, mrp, offerPrice, tax, image,
     productType, hasVariants, flatVariants, colorVariants,
-  } = req.body;
+  } = payload;
 
   const product = await Product.findById(req.params.productId);
   if (!product) {
@@ -103,6 +114,13 @@ const updateMasterProduct = asyncHandler(async (req, res) => {
   if (name !== undefined) product.name = name.trim();
   if (tax !== undefined) product.tax = Number(tax);
   if (image !== undefined) product.images = image ? [image] : [];
+  
+  if (req.files && req.files.length > 0) {
+    const uploadedImages = req.files.map((file) => file.path);
+    product.images = [...(product.images || []), ...uploadedImages];
+  } else if (req.file) {
+    product.images = [...(product.images || []), req.file.path];
+  }
 
   // Update product type and variant data if provided
   if (productType !== undefined) {
@@ -137,6 +155,11 @@ const updateMasterProduct = asyncHandler(async (req, res) => {
     if (flatVariants !== undefined) product.flatVariants = flatVariants;
     if (colorVariants !== undefined) product.colorVariants = colorVariants;
   }
+
+  console.log("Payload:", payload);
+console.log("Body:", req.body);
+console.log("Files:", req.files);
+console.log("Product before save:", product);
 
   await product.save();
   res.json({ success: true, product });

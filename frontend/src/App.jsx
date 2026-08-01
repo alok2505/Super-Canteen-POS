@@ -120,6 +120,8 @@ const RoleDefaultRedirect = () => {
   return <Navigate to="/pos" replace />;
 };
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   useEffect(() => {
     const initPrinter = async () => {
@@ -133,6 +135,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-right" />
       <Routes>
           <Route element={
             <ProtectedRoute>

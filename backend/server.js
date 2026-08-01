@@ -56,6 +56,19 @@ app.get("/", (req, res) => {
   });
 });
 
+// Global Error Handler for unhandled errors (e.g. Multer/Cloudinary)
+app.use((err, req, res, next) => {
+  console.error("Global Error Middleware:", err);
+  if (err instanceof require("multer").MulterError) {
+    return res.status(400).json({ success: false, message: `Upload error: ${err.message}` });
+  }
+  // Cloudinary often throws errors with `.message`
+  res.status(500).json({ 
+    success: false, 
+    message: err.message || "Internal Server Error"
+  });
+});
+
 // MongoDB Connection
 mongoose
   .connect(process.env.MONGO_URI)
