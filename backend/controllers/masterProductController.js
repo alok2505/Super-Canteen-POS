@@ -82,13 +82,40 @@ const createMasterProduct = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
-  if (req.files && req.files.length > 0) {
-    product.images = req.files.map((file) => file.path);
-    await product.save();
-  } else if (req.file) {
-    product.images = [req.file.path];
-    await product.save();
+  const files = req.files || (req.file ? [req.file] : []);
+  
+  const rootFiles = files.filter(f => f.fieldname === "images");
+  if (rootFiles.length > 0) {
+    product.images = rootFiles.map(f => f.path);
   }
+
+  if (product.productType === "ColorSize" && product.colorVariants) {
+    product.colorVariants.forEach((c, idx) => {
+      const payloadColor = payload.colorVariants?.[idx];
+      if (payloadColor?.useMasterImage) {
+        c.images = [...(product.images || [])];
+      } else {
+        const colorFiles = files.filter(f => f.fieldname === `colorImages_${idx}`);
+        if (colorFiles.length > 0) {
+          c.images = colorFiles.map(f => f.path);
+        }
+      }
+    });
+  } else if (product.productType === "WeightPack" && product.flatVariants) {
+    product.flatVariants.forEach((v, idx) => {
+      const payloadVariant = payload.flatVariants?.[idx];
+      if (payloadVariant?.useMasterImage) {
+        v.images = [...(product.images || [])];
+      } else {
+        const flatFiles = files.filter(f => f.fieldname === `flatImages_${idx}`);
+        if (flatFiles.length > 0) {
+          v.images = flatFiles.map(f => f.path);
+        }
+      }
+    });
+  }
+
+  await product.save();
 
   res.status(201).json({ success: true, product });
 });
@@ -110,17 +137,10 @@ const updateMasterProduct = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: "Master product not found." });
   }
 
-  // Update scalar fields if provided
   if (name !== undefined) product.name = name.trim();
   if (tax !== undefined) product.tax = Number(tax);
   if (image !== undefined) product.images = image ? [image] : [];
-  
-  if (req.files && req.files.length > 0) {
-    const uploadedImages = req.files.map((file) => file.path);
-    product.images = [...(product.images || []), ...uploadedImages];
-  } else if (req.file) {
-    product.images = [...(product.images || []), req.file.path];
-  }
+
 
   // Update product type and variant data if provided
   if (productType !== undefined) {
@@ -157,9 +177,38 @@ const updateMasterProduct = asyncHandler(async (req, res) => {
   }
 
   console.log("Payload:", payload);
-console.log("Body:", req.body);
-console.log("Files:", req.files);
-console.log("Product before save:", product);
+  const files = req.files || (req.file ? [req.file] : []);
+  
+  const rootFiles = files.filter(f => f.fieldname === "images");
+  if (rootFiles.length > 0) {
+    product.images = rootFiles.map(f => f.path);
+  }
+
+  if (product.productType === "ColorSize" && product.colorVariants) {
+    product.colorVariants.forEach((c, idx) => {
+      const payloadColor = payload.colorVariants?.[idx];
+      if (payloadColor?.useMasterImage) {
+        c.images = [...(product.images || [])];
+      } else {
+        const colorFiles = files.filter(f => f.fieldname === `colorImages_${idx}`);
+        if (colorFiles.length > 0) {
+          c.images = colorFiles.map(f => f.path);
+        }
+      }
+    });
+  } else if (product.productType === "WeightPack" && product.flatVariants) {
+    product.flatVariants.forEach((v, idx) => {
+      const payloadVariant = payload.flatVariants?.[idx];
+      if (payloadVariant?.useMasterImage) {
+        v.images = [...(product.images || [])];
+      } else {
+        const flatFiles = files.filter(f => f.fieldname === `flatImages_${idx}`);
+        if (flatFiles.length > 0) {
+          v.images = flatFiles.map(f => f.path);
+        }
+      }
+    });
+  }
 
   await product.save();
   res.json({ success: true, product });

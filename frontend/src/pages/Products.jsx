@@ -68,13 +68,13 @@ function Field({ label, value, onChange, type = "text", required = true, disable
 // Modal shell
 function Modal({ title, subtitle, onClose, children, wide = false }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className={`my-4 w-full ${wide ? "max-w-4xl" : "max-w-2xl"} rounded-2xl bg-white shadow-2xl overflow-hidden`}>
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className={`flex max-h-[90vh] flex-col w-full ${wide ? "max-w-5xl" : "max-w-2xl"} rounded-2xl bg-white shadow-2xl overflow-hidden`}>
+        <div className="shrink-0 bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-5">
           <h2 className="text-xl font-bold text-white">{title}</h2>
           {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
         </div>
-        <div className="p-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
       </div>
     </div>
   );
@@ -113,6 +113,41 @@ function FlatVariantRow({ v, idx, onChange, onRemove, canRemove }) {
         <Field label="Barcode" value={v.barcode} onChange={(val) => set("barcode", val)} required={false} placeholder="Unique barcode" />
         <Field label="SKU" value={v.sku} onChange={(val) => set("sku", val)} required={false} />
         <Field label="Stock" type="number" value={v.countInStock} onChange={(val) => set("countInStock", val)} />
+        <div className="col-span-2 sm:col-span-3 mt-1 border-t border-slate-100 pt-3">
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Variant Image</label>
+          <div className="mb-2">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={v.useMasterImage || false} onChange={(e) => set("useMasterImage", e.target.checked)} />
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Use Master Image</span>
+            </label>
+          </div>
+          {!v.useMasterImage && (
+            <>
+              {v.images && v.images.length > 0 && (
+                <div className="mb-2 flex gap-2">
+                  {v.images.slice(-1).map((img, i) => (
+                    <div key={i} className="relative h-10 w-10 overflow-hidden rounded-lg border border-slate-200">
+                      <img src={img} alt="Variant" className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const validFiles = Array.from(e.target.files).filter(f => f.size <= 250 * 1024);
+                  if (validFiles.length < e.target.files.length) toast.error("Some images exceeded 250KB limit");
+                  set("newImages", validFiles);
+                }}
+                className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              />
+              {v.newImages && v.newImages.length > 0 && (
+                <p className="mt-1 text-[10px] text-green-600">{v.newImages.length} new file(s)</p>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -145,8 +180,8 @@ function ColorSizeEditor({ colors, onChange }) {
     <div>
       {colors.map((c, ci) => (
         <div key={c._id} className="mb-4 rounded-xl border border-indigo-100 bg-white p-4">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="flex-1 grid grid-cols-2 gap-3">
+          <div className="mb-3 flex items-start gap-3">
+            <div className="flex-1 grid grid-cols-1 gap-3 md:grid-cols-3">
               <Field label="Color Name" value={c.name} onChange={(val) => setColor(ci, "name", val)} placeholder="e.g. Red, Ocean Blue" />
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Color Code</label>
@@ -157,10 +192,45 @@ function ColorSizeEditor({ colors, onChange }) {
                     className={`flex-1 ${inputClass}`} placeholder="#000000" />
                 </div>
               </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Color Image</label>
+                <div className="mb-2">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={c.useMasterImage || false} onChange={(e) => setColor(ci, "useMasterImage", e.target.checked)} />
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Use Master Image</span>
+                  </label>
+                </div>
+                {!c.useMasterImage && (
+                  <>
+                    {c.images && c.images.length > 0 && (
+                      <div className="mb-2 flex gap-2">
+                        {c.images.slice(-1).map((img, idx) => (
+                          <div key={idx} className="relative h-10 w-10 overflow-hidden rounded-lg border border-slate-200">
+                            <img src={img} alt="Color" className="h-full w-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const validFiles = Array.from(e.target.files).filter(f => f.size <= 250 * 1024);
+                        if (validFiles.length < e.target.files.length) toast.error("Some images exceeded 250KB limit");
+                        setColor(ci, "newImages", validFiles);
+                      }}
+                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                    />
+                    {c.newImages && c.newImages.length > 0 && (
+                      <p className="mt-1 text-[10px] text-green-600">{c.newImages.length} new file(s)</p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             {colors.length > 1 && (
               <button type="button" onClick={() => removeColor(ci)}
-                className="self-end rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-100">
+                className="mt-6 self-start rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-100">
                 Remove Color
               </button>
             )}
@@ -275,6 +345,8 @@ function Products() {
       tax: p.tax ?? "0", productType: p.productType || "Single",
       flatVariants: p.flatVariants?.length ? p.flatVariants.map(v => ({ ...v })) : [blankFlatVariant()],
       colorVariants: p.colorVariants?.length ? p.colorVariants.map(c => ({ ...c, sizes: c.sizes?.map(s => ({ ...s })) || [blankSizeVariant()] })) : [blankColorVariant()],
+      existingImages: p.images || [],
+      images: [],
     });
     setEditingProductId(p._id);
     setModal("masterEdit");
@@ -303,6 +375,7 @@ function Products() {
       body.flatVariants = masterForm.flatVariants.map(v => {
         const variantData = {
           ...v,
+          useMasterImage: v.useMasterImage,
           mrp: Number(v.mrp),
           offerPrice: Number(v.offerPrice || v.mrp),
           countInStock: Number(v.countInStock || 0),
@@ -318,6 +391,7 @@ function Products() {
       body.colorVariants = masterForm.colorVariants.map(c => {
         const colorData = {
           ...c,
+          useMasterImage: c.useMasterImage,
           sizes: c.sizes.map(s => {
             const sizeData = {
               ...s,
@@ -345,6 +419,20 @@ function Products() {
     if (masterForm.images && masterForm.images.length > 0) {
       masterForm.images.forEach(img => {
         formData.append("images", img);
+      });
+    }
+
+    if (masterForm.productType === "ColorSize") {
+      masterForm.colorVariants.forEach((c, idx) => {
+        if (c.newImages && c.newImages.length > 0) {
+          c.newImages.forEach(img => formData.append(`colorImages_${idx}`, img));
+        }
+      });
+    } else if (masterForm.productType === "WeightPack") {
+      masterForm.flatVariants.forEach((v, idx) => {
+        if (v.newImages && v.newImages.length > 0) {
+          v.newImages.forEach(img => formData.append(`flatImages_${idx}`, img));
+        }
       });
     }
 
@@ -443,6 +531,7 @@ function Products() {
         <table className="w-full text-left text-sm">
           <thead className="border-b border-slate-100 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
+              <th className="px-6 py-4">Img</th>
               <th className="px-6 py-4">Product</th>
               <th className="px-6 py-4">Barcode / Type</th>
               <th className="px-6 py-4">MRP</th>
@@ -475,6 +564,35 @@ function Products() {
               const locStr = [loc.section && `S:${loc.section}`, loc.rack && `R:${loc.rack}`, loc.shelf && `Sh:${loc.shelf}`, loc.bin && `B:${loc.bin}`].filter(Boolean).join(" › ") || "—";
               return (
                 <tr key={item._id} className="border-t border-slate-100 hover:bg-slate-50 transition">
+                  <td className="px-6 py-4">
+                    {(() => {
+                      let displayImage = product?.images?.length ? product.images[product.images.length - 1] : null;
+                      if (!isAdmin && item.masterVariantId) {
+                        if (product?.productType === "ColorSize") {
+                          for (const color of product.colorVariants || []) {
+                            if (color.sizes?.some(s => s._id?.toString() === item.masterVariantId)) {
+                              if (color.images?.length > 0) {
+                                displayImage = color.images[color.images.length - 1];
+                              }
+                              break;
+                            }
+                          }
+                        } else if (product?.productType === "WeightPack") {
+                          const flat = product.flatVariants?.find(v => v._id?.toString() === item.masterVariantId);
+                          if (flat?.images?.length > 0) {
+                            displayImage = flat.images[flat.images.length - 1];
+                          }
+                        }
+                      }
+                      return displayImage ? (
+                        <img src={displayImage} alt="product" className="h-10 w-10 rounded-lg object-cover shadow-sm" />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400 shadow-sm">
+                          <FaBoxOpen />
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-slate-800">{product?.name}</span>
@@ -584,15 +702,23 @@ function Products() {
                 </div>
                 <div className="col-span-2">
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Product Images (Max 250KB each)</label>
+                  {masterForm.existingImages && masterForm.existingImages.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {masterForm.existingImages.slice(-1).map((img, idx) => (
+                        <div key={idx} className="relative h-16 w-16 overflow-hidden rounded-lg border border-slate-200">
+                          <img src={img} alt="Product" className="h-full w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <input 
                     type="file" 
-                    multiple 
                     accept="image/*" 
                     onChange={handleImageSelect} 
                     className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                   />
                   {masterForm.images && masterForm.images.length > 0 && (
-                    <p className="mt-2 text-xs text-green-600">{masterForm.images.length} file(s) selected</p>
+                    <p className="mt-2 text-xs text-green-600">{masterForm.images.length} new file(s) selected</p>
                   )}
                 </div>
               </div>

@@ -16,7 +16,7 @@ const listMyInventory = asyncHandler(async (req, res) => {
   if (!franchiseId) return res.status(400).json({ success: false, message: "Franchise ID is required" });
 
   const batches = await FranchiseInventory.find({ franchiseId })
-    .populate("productId", "name barcode sku mrp images productType")
+    .populate("productId", "name barcode sku mrp images productType colorVariants flatVariants")
     .sort({ expiryDate: 1, createdAt: -1 }).lean();
   res.json({ success: true, batches: batches.filter((batch) => batch.productId) });
 });

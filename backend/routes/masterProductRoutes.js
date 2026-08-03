@@ -39,12 +39,12 @@ router.get("/", listMasterProducts);
 // POST /master-products
 // Adds a new product to the global master catalogue.
 // Only Admin can create master products.
-router.post("/", requireRole(...ADMIN_ONLY), upload.array("images", 5), createMasterProduct);
+router.post("/", requireRole(...ADMIN_ONLY), upload.any(), createMasterProduct);
 
 // PATCH /master-products/:productId
 // Updates a master product (price, name, barcode, category, etc.).
 // Only Admin can edit the global catalogue.
-router.patch("/:productId", requireRole(...ADMIN_ONLY), upload.array("images", 5), updateMasterProduct);
+router.patch("/:productId", requireRole(...ADMIN_ONLY), upload.any(), updateMasterProduct);
 
 
 

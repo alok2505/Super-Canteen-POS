@@ -4,6 +4,8 @@ const api = axios.create({
   baseURL: "http://localhost:3000/api",
 });
 
+import toast from "react-hot-toast";
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -13,6 +15,15 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const msg = error.response?.data?.message || error.message || "An unexpected error occurred.";
+    toast.error(msg);
+    return Promise.reject(error);
+  }
 );
 
 export default api;
