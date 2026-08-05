@@ -1,3 +1,4 @@
+import { getImageUrl } from "../utils/imageUtils";
 import {
   FaTrash,
   FaPlus,
@@ -23,7 +24,7 @@ function BillingRow({
         <div className="flex items-center gap-3">
 
           <img
-            src={item.image}
+            src={getImageUrl(item.image)}
             alt={item.name}
             className="w-14 h-14 rounded-lg border object-cover"
           />

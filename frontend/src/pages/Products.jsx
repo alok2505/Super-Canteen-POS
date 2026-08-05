@@ -1,3 +1,4 @@
+import { getImageUrl } from "../utils/imageUtils";
 import { useEffect, useState } from "react";
 import { FaEdit, FaPlus, FaTrash, FaBoxOpen, FaLayerGroup } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -127,7 +128,7 @@ function FlatVariantRow({ v, idx, onChange, onRemove, canRemove }) {
                 <div className="mb-2 flex gap-2">
                   {v.images.slice(-1).map((img, i) => (
                     <div key={i} className="relative h-10 w-10 overflow-hidden rounded-lg border border-slate-200">
-                      <img src={img} alt="Variant" className="h-full w-full object-cover" />
+                      <img src={getImageUrl(img)} alt="Variant" className="h-full w-full object-cover" />
                     </div>
                   ))}
                 </div>
@@ -206,7 +207,7 @@ function ColorSizeEditor({ colors, onChange }) {
                       <div className="mb-2 flex gap-2">
                         {c.images.slice(-1).map((img, idx) => (
                           <div key={idx} className="relative h-10 w-10 overflow-hidden rounded-lg border border-slate-200">
-                            <img src={img} alt="Color" className="h-full w-full object-cover" />
+                            <img src={getImageUrl(img)} alt="Color" className="h-full w-full object-cover" />
                           </div>
                         ))}
                       </div>
@@ -585,7 +586,7 @@ function Products() {
                         }
                       }
                       return displayImage ? (
-                        <img src={displayImage} alt="product" className="h-10 w-10 rounded-lg object-cover shadow-sm" />
+                        <img src={getImageUrl(displayImage)} alt="product" className="h-10 w-10 rounded-lg object-cover shadow-sm" />
                       ) : (
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400 shadow-sm">
                           <FaBoxOpen />
@@ -706,7 +707,7 @@ function Products() {
                     <div className="mb-3 flex flex-wrap gap-2">
                       {masterForm.existingImages.slice(-1).map((img, idx) => (
                         <div key={idx} className="relative h-16 w-16 overflow-hidden rounded-lg border border-slate-200">
-                          <img src={img} alt="Product" className="h-full w-full object-cover" />
+                          <img src={getImageUrl(img)} alt="Product" className="h-full w-full object-cover" />
                         </div>
                       ))}
                     </div>

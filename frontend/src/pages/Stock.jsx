@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { getImageUrl } from "../utils/imageUtils";
+
 import { getAggregatedStock } from "../services/inventoryApi";
 import { getFranchises } from "../services/franchiseApi";
 import { FaSearch, FaSpinner } from "react-icons/fa";
@@ -152,7 +154,7 @@ function Stock() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         {item.images && item.images.length > 0 ? (
-                          <img src={item.images[0]} alt={item.productName} className="h-10 w-10 rounded-lg object-cover bg-slate-200" />
+                          <img src={getImageUrl(item.images[0])} alt={item.productName} className="h-10 w-10 rounded-lg object-cover bg-slate-200" />
                         ) : (
                           <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold uppercase">
                             {item.productName.substring(0, 2)}

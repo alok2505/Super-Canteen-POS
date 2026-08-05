@@ -2,6 +2,7 @@ const { default: mongoose } = require("mongoose");
 const asyncHandler = require("../middlewares/asyncHandler.js");
 const Product = require("../models/productModel.js");
 const FranchiseInventory = require("../models/franchiseInventoryModel.js");
+const { deleteOldImages } = require("../utils/imageUtils");
 // const SlabRequest = require("../models/slabRequest.js");
 const moment = require("moment-timezone");
 // const brand = require("../models/brand.js");
@@ -243,9 +244,9 @@ const addProduct = asyncHandler(async (req, res) => {
     let imageUrls = []; //upload image through backend for proper validation
 
     if (req.files && req.files.length > 0) {
-      imageUrls = req.files.map((file) => file.path);
+      imageUrls = req.files.map((file) => `/uploads/products/${file.filename}`);
     } else if (req.file) {
-      imageUrls.push(req.file.path);
+      imageUrls.push(`/uploads/products/${req.file.filename}`);
     }
 
     const productCoupons = Object.keys(fields)
@@ -900,20 +901,22 @@ const updateProductDetails = asyncHandler(async (req, res) => {
         : [];
         
     if (req.files && req.files.length > 0) {
-      const uploadedImages = req.files.map((file) => file.path);
+      const uploadedImages = req.files.map((file) => `/uploads/products/${file.filename}`);
       newImageUrls = [...newImageUrls, ...uploadedImages];
     } else if (req.file) {
-      newImageUrls.push(req.file.path);
+      newImageUrls.push(`/uploads/products/${req.file.filename}`);
     }
     let removedImages = Array.isArray(fields.removedImages)
       ? fields.removedImages
       : fields.removedImages
         ? JSON.parse(fields.removedImages)
         : [];
-    if (removedImages.length)
+    if (removedImages.length) {
+      deleteOldImages(removedImages);
       updatedImages = updatedImages.filter(
         (img) => !removedImages.includes(img),
       );
+    }
     if (newImageUrls.length)
       updatedImages = [...updatedImages, ...newImageUrls];
     updatedImages = [...new Set(updatedImages)];

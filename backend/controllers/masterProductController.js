@@ -1,5 +1,6 @@
 const asyncHandler = require("../middlewares/asyncHandler");
 const Product = require("../models/productModel");
+const { deleteOldImages } = require("../utils/imageUtils");
 
 // listMasterProducts
 // Returns all master products with variant data so the frontend
@@ -86,7 +87,7 @@ const createMasterProduct = asyncHandler(async (req, res) => {
   
   const rootFiles = files.filter(f => f.fieldname === "images");
   if (rootFiles.length > 0) {
-    product.images = rootFiles.map(f => f.path);
+    product.images = rootFiles.map(f => `/uploads/products/${f.filename}`);
   }
 
   if (product.productType === "ColorSize" && product.colorVariants) {
@@ -97,7 +98,7 @@ const createMasterProduct = asyncHandler(async (req, res) => {
       } else {
         const colorFiles = files.filter(f => f.fieldname === `colorImages_${idx}`);
         if (colorFiles.length > 0) {
-          c.images = colorFiles.map(f => f.path);
+          c.images = colorFiles.map(f => `/uploads/products/${f.filename}`);
         }
       }
     });
@@ -109,7 +110,7 @@ const createMasterProduct = asyncHandler(async (req, res) => {
       } else {
         const flatFiles = files.filter(f => f.fieldname === `flatImages_${idx}`);
         if (flatFiles.length > 0) {
-          v.images = flatFiles.map(f => f.path);
+          v.images = flatFiles.map(f => `/uploads/products/${f.filename}`);
         }
       }
     });
@@ -181,18 +182,23 @@ const updateMasterProduct = asyncHandler(async (req, res) => {
   
   const rootFiles = files.filter(f => f.fieldname === "images");
   if (rootFiles.length > 0) {
-    product.images = rootFiles.map(f => f.path);
+    deleteOldImages(product.images);
+    product.images = rootFiles.map(f => `/uploads/products/${f.filename}`);
   }
 
   if (product.productType === "ColorSize" && product.colorVariants) {
     product.colorVariants.forEach((c, idx) => {
       const payloadColor = payload.colorVariants?.[idx];
       if (payloadColor?.useMasterImage) {
+        if (c.images && c.images.length > 0 && c.images[0] !== product.images?.[0]) {
+           deleteOldImages(c.images);
+        }
         c.images = [...(product.images || [])];
       } else {
         const colorFiles = files.filter(f => f.fieldname === `colorImages_${idx}`);
         if (colorFiles.length > 0) {
-          c.images = colorFiles.map(f => f.path);
+          if (c.images && c.images.length > 0 && c.images[0] !== product.images?.[0]) deleteOldImages(c.images);
+          c.images = colorFiles.map(f => `/uploads/products/${f.filename}`);
         }
       }
     });
@@ -200,11 +206,15 @@ const updateMasterProduct = asyncHandler(async (req, res) => {
     product.flatVariants.forEach((v, idx) => {
       const payloadVariant = payload.flatVariants?.[idx];
       if (payloadVariant?.useMasterImage) {
+        if (v.images && v.images.length > 0 && v.images[0] !== product.images?.[0]) {
+           deleteOldImages(v.images);
+        }
         v.images = [...(product.images || [])];
       } else {
         const flatFiles = files.filter(f => f.fieldname === `flatImages_${idx}`);
         if (flatFiles.length > 0) {
-          v.images = flatFiles.map(f => f.path);
+          if (v.images && v.images.length > 0 && v.images[0] !== product.images?.[0]) deleteOldImages(v.images);
+          v.images = flatFiles.map(f => `/uploads/products/${f.filename}`);
         }
       }
     });

@@ -11,6 +11,10 @@ const cookieParser = require("cookie-parser");
 dotenv.config();
 
 const app = express();
+const path = require("path");
+
+// Serve static uploads
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Middleware
 app.use(cors());

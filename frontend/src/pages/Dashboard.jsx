@@ -1,3 +1,4 @@
+import { getImageUrl } from "../utils/imageUtils";
 import { useState, useEffect } from "react";
 import { getDashboardStats, getLowStockAlerts } from "../services/reportApi";
 import { FaChartLine, FaBoxOpen, FaFileInvoiceDollar, FaExclamationTriangle, FaCalendarAlt } from "react-icons/fa";
@@ -114,7 +115,7 @@ function Dashboard() {
                 <tr key={item._id} className="hover:bg-slate-50 transition">
                   <td className="p-4 flex items-center gap-3">
                     {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-10 h-10 rounded object-cover border" />
+                      <img src={getImageUrl(item.image)} alt={item.name} className="w-10 h-10 rounded object-cover border" />
                     ) : (
                       <div className="w-10 h-10 rounded bg-slate-200 flex items-center justify-center text-xs text-slate-500">No Img</div>
                     )}
